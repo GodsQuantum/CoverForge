@@ -1,0 +1,23 @@
+[package]
+name = "coverforge"
+version = "0.2.0"
+edition = "2024"
+license = "MIT"
+description = "API-first deterministic social media compositing engine"
+repository = "https://github.com/GodsQuantum/CoverForge"
+
+[dependencies]
+anyhow = "1"
+axum = { version = "0.8.9", features = ["json"] }
+base64 = "0.22"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+mime_guess = "2"
+resvg = "0.48.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
