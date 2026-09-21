@@ -1,0 +1,12 @@
+/target
+/web/node_modules
+/web/build
+/web/.svelte-kit
+.env
+.env.*
+!.env.example
+/local
+/private
+*.log
+.DS_Store
+/output
