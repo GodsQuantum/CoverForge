@@ -507,15 +507,32 @@ fn safe_output_filename(raw: &str) -> Result<String> {
 fn encode_jpeg_limited(src_png: &Path, target: &Path, max_bytes: usize) -> Result<()> {
     let image = image::open(src_png)?.to_rgb8();
     let mut best = Vec::new();
-    for quality in [90u8, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40] {
+    let mut selected_quality = None;
+    for quality in [90u8, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20] {
         let mut buf = Vec::new();
         JpegEncoder::new_with_quality(&mut buf, quality).encode_image(&image)?;
-        best = buf;
-        if best.len() <= max_bytes {
+        if buf.len() <= max_bytes {
+            best = buf;
+            selected_quality = Some(quality);
             break;
         }
+        best = buf;
     }
-    fs::write(target, best)?;
+    let quality = selected_quality.ok_or_else(|| {
+        anyhow!(
+            "jpeg_size_limit_unreachable: {} bytes > {} bytes at minimum quality",
+            best.len(),
+            max_bytes
+        )
+    })?;
+    fs::write(target, &best)?;
+    tracing::debug!(
+        path = %target.display(),
+        bytes = best.len(),
+        quality,
+        max_bytes,
+        "JPEG written within size limit"
+    );
     Ok(())
 }
 
