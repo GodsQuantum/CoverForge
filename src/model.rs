@@ -10,6 +10,31 @@ pub struct Template {
     pub variants: BTreeMap<String, Canvas>,
     #[serde(default)]
     pub layers: Vec<Layer>,
+    #[serde(default)]
+    pub brand: BrandStyle,
+    #[serde(default)]
+    pub formats: BTreeMap<String, FormatTemplate>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BrandStyle {
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub visual_summary: String,
+    #[serde(default)]
+    pub palette: BTreeMap<String, String>,
+    #[serde(default)]
+    pub fonts: BTreeMap<String, String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormatTemplate {
+    pub canvas: Canvas,
+    #[serde(default)]
+    pub layers: Vec<Layer>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +96,8 @@ pub enum Layer {
         line_height: f32,
         #[serde(default)]
         uppercase: bool,
+        #[serde(default)]
+        rotation_deg: f32,
     },
     Rect {
         id: String,

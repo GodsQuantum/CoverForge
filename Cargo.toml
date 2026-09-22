@@ -1,6 +1,6 @@
 [package]
 name = "coverforge"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 description = "API-first deterministic social media compositing engine"
@@ -8,7 +8,7 @@ repository = "https://github.com/GodsQuantum/CoverForge"
 
 [dependencies]
 anyhow = "1"
-axum = { version = "0.8.9", features = ["json"] }
+axum = { version = "0.8.9", features = ["json", "multipart"] }
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 mime_guess = "2"

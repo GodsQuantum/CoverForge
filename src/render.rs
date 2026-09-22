@@ -100,13 +100,15 @@ impl Renderer {
     pub fn render_legacy(
         &self,
         template_id: &str,
+        variant: &str,
         variables: &BTreeMap<String, String>,
         requested_filename: &str,
     ) -> Result<RenderedAsset> {
         let template = self.load_template(template_id)?;
+        let (canvas, layers) = resolve_format(&template, variant)?;
         let filename = safe_output_filename(requested_filename)?;
         let path = self.output_dir.join(&filename);
-        let svg = self.compose_svg(&template, &template.canvas, variables)?;
+        let svg = self.compose_svg(canvas, layers, variables)?;
         let ext = path
             .extension()
             .and_then(|x| x.to_str())
@@ -117,17 +119,17 @@ impl Renderer {
             let tmp = self
                 .output_dir
                 .join(format!(".{}.png", Uuid::new_v4().simple()));
-            self.rasterize(&svg, &template.canvas, &tmp)?;
+            self.rasterize(&svg, canvas, &tmp)?;
             encode_jpeg_limited(&tmp, &path, 512 * 1024)?;
             let _ = fs::remove_file(tmp);
         } else {
-            self.rasterize(&svg, &template.canvas, &path)?;
+            self.rasterize(&svg, canvas, &path)?;
         }
 
         Ok(RenderedAsset {
-            variant: "default".into(),
-            width: template.canvas.width,
-            height: template.canvas.height,
+            variant: variant.into(),
+            width: canvas.width,
+            height: canvas.height,
             filename: filename.clone(),
             path: path.to_string_lossy().into_owned(),
             url: format!("/outputs/{filename}"),
@@ -137,7 +139,9 @@ impl Renderer {
     pub fn render(&self, req: &RenderRequest) -> Result<RenderResponse> {
         let template = self.load_template(&req.template)?;
         let variants = if req.variants.is_empty() {
-            if template.variants.is_empty() {
+            if !template.formats.is_empty() {
+                template.formats.keys().cloned().collect()
+            } else if template.variants.is_empty() {
                 vec!["default".to_string()]
             } else {
                 template.variants.keys().cloned().collect()
@@ -154,15 +158,8 @@ impl Renderer {
         let mut assets = Vec::new();
 
         for variant in variants {
-            let canvas = if variant == "default" {
-                &template.canvas
-            } else {
-                template
-                    .variants
-                    .get(&variant)
-                    .ok_or_else(|| anyhow!("unknown variant: {variant}"))?
-            };
-            let svg = self.compose_svg(&template, canvas, &req.variables)?;
+            let (canvas, layers) = resolve_format(&template, &variant)?;
+            let svg = self.compose_svg(canvas, layers, &req.variables)?;
             let filename = format!("{stem}-{}.png", safe_name(&variant));
             let path = self.output_dir.join(&filename);
             self.rasterize(&svg, canvas, &path)?;
@@ -184,8 +181,8 @@ impl Renderer {
 
     fn compose_svg(
         &self,
-        template: &Template,
         canvas: &Canvas,
+        layers: &[Layer],
         vars: &BTreeMap<String, String>,
     ) -> Result<String> {
         let mut body = String::new();
@@ -193,7 +190,7 @@ impl Renderer {
             r#"<rect width="100%" height="100%" fill="{}"/>"#,
             xml(&canvas.background)
         ));
-        for layer in &template.layers {
+        for layer in layers {
             match layer {
                 Layer::Rect {
                     frame,
@@ -244,6 +241,7 @@ impl Renderer {
                     max_lines,
                     line_height,
                     uppercase,
+                    rotation_deg,
                     ..
                 } => {
                     let mut value = substitute(text, vars);
@@ -278,7 +276,14 @@ impl Renderer {
                             )
                         })
                         .unwrap_or_default();
-                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" font-family="{}" font-weight="{}" font-size="{size}" text-anchor="{anchor}"{stroke}>"#, xml(color), xml(font_family), font_weight));
+                    let rotation = if rotation_deg.abs() > f32::EPSILON {
+                        let cx = x + w / 2.0;
+                        let cy = y + h / 2.0;
+                        format!(r#" transform="rotate({rotation_deg} {cx} {cy})""#)
+                    } else {
+                        String::new()
+                    };
+                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" font-family="{}" font-weight="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), xml(font_family), font_weight));
                     for (i, line) in lines.iter().enumerate() {
                         let dy = if i == 0 { 0.0 } else { size * line_height };
                         body.push_str(&format!(
@@ -370,6 +375,23 @@ impl Renderer {
         pixmap.save_png(path)?;
         Ok(())
     }
+}
+
+fn resolve_format<'a>(template: &'a Template, variant: &str) -> Result<(&'a Canvas, &'a [Layer])> {
+    if let Some(format) = template.formats.get(variant) {
+        return Ok((&format.canvas, &format.layers));
+    }
+    if !template.formats.is_empty() {
+        return Err(anyhow!("unknown format: {variant}"));
+    }
+    if variant == "default" {
+        return Ok((&template.canvas, &template.layers));
+    }
+    let canvas = template
+        .variants
+        .get(variant)
+        .ok_or_else(|| anyhow!("unknown variant: {variant}"))?;
+    Ok((canvas, &template.layers))
 }
 
 fn crop_cover(img: DynamicImage, w: u32, h: u32, fx: f32, fy: f32) -> DynamicImage {

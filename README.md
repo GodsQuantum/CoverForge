@@ -1,83 +1,133 @@
 # CoverForge
 
-Deterministic, API-first image compositing for social media.
+**AI makes the key art. CoverForge makes it publishable.**
 
-AI image models are good at key art and bad at exact typography, repeated logos
-and deterministic cross-format branding. CoverForge deliberately does **not**
-generate the artwork: it turns already-native key art into final branded assets.
+Deterministic Rust compositor + editable show styles for podcast thumbnails and social covers.
 
-## Stack
+[Français](README.fr.md) · [简体中文](README.zh-CN.md)
 
-- Rust 2024 + Axum
-- resvg/tiny-skia deterministic rasterization
-- Svelte 5 static template editor
-- JSON scene graph templates
-- Docker Compose deployment
+## Why
 
-## Current design
+Image models are good at scenes and bad at repeated typography, logos and exact branding. CoverForge keeps those jobs separate:
 
-AUTOPUBLISHER generates a distinct key art for each target ratio:
+1. generate **native key art for the target ratio**;
+2. apply exact typography / logo / palette with a deterministic renderer;
+3. edit the entire visual identity of a show from **one JSON file**.
 
-- YouTube 16:9
-- Square 1:1
-- Instagram feed 4:5
-- TikTok / Story 9:16
-- Acast reuses the square art with a podcast-specific template
+No fake `16:9 → blurred background → inset image` conversion.
 
-CoverForge then applies the corresponding template. There is no
-`16:9 -> blurred background -> inset image` conversion.
+## What ships in v0.3
 
-Production templates are mutable data and are intentionally kept outside the
-public repository. The container reads them from `COVERFORGE_TEMPLATE_DIR`.
-The web UI can inspect, edit and atomically save them.
+- ⚡ Rust 2024 + Axum + resvg/tiny-skia
+- 🧩 one JSON show-style containing every layout
+- 🖥️ Svelte 5 editor with live previews
+- 🔤 large redistributable font pack
+- ⬆️ custom font upload from the UI
+- 📁 custom font folder-drop support
+- 🐳 Docker Compose deployment
+- 🔌 API-first, with a compatibility endpoint for existing automation
+- 🎯 normalized 0–1 coordinates
+- 🧱 image / rectangle / text layers
+- 💾 atomic template saves
+
+## Native social formats
+
+A show style can hold all production outputs in the same file:
+
+| Key | Output |
+|---|---:|
+| `youtube` | 3840×2160 |
+| `square` | 1200×1200 |
+| `feed` | 1080×1350 |
+| `vertical` | 2160×3840 |
+| `acast` | 3000×3000 |
+
+A recommended automation pipeline is:
+
+```text
+transcript/editorial direction
+        ↓
+16:9 key art ──→ YouTube layout
+1:1 key art  ──→ Square + Acast layouts
+4:5 key art  ──→ Feed layout
+9:16 key art ──→ Vertical layout
+```
+
+CoverForge only crops when you explicitly ask a layer to use `fit: cover`; it does not invent blurred letterboxing.
+
+## One file per show
+
+Example production tree:
+
+```text
+Templates/
+├── cf.json
+├── dpafm.json
+├── lcfp.json
+└── my-new-show.json
+```
+
+Each show JSON contains:
+
+- `brand.display_name`
+- `brand.visual_summary`
+- `brand.palette`
+- `brand.fonts`
+- `brand.notes`
+- `formats.youtube`
+- `formats.square`
+- `formats.feed`
+- `formats.vertical`
+- `formats.acast`
+
+See [docs/SHOW_STYLES.md](docs/SHOW_STYLES.md).
+
+## Fonts
+
+CoverForge ships with a broad libre font set and exposes a searchable font browser.
+
+Custom fonts can be added either:
+
+- from the UI;
+- by dropping `.ttf`, `.otf`, `.ttc` or `.otc` files into the persistent Custom folder.
+
+The public repo does **not** contain private/commercial font binaries.
+
+See [docs/FONTS.md](docs/FONTS.md).
 
 ## API
 
-- `GET /health`
-- `GET /v1/templates`
-- `GET /v1/templates/{id}`
-- `PUT /v1/templates/{id}`
-- `POST /v1/render`
-- `POST /v1/render/batch`
-- `POST /api/generate` legacy adapter used by AUTOPUBLISHER
+```text
+GET    /health
+GET    /v1/templates
+GET    /v1/templates/{show}
+PUT    /v1/templates/{show}
+GET    /v1/fonts
+POST   /v1/fonts
+DELETE /v1/fonts/{filename}
+POST   /v1/render
+POST   /v1/render/batch
+POST   /api/generate
+```
 
-### Render
+### Render one format
 
 ```json
 {
-  "template": "example-social",
+  "template": "dpafm",
   "variables": {
     "title": "LE STAND-UP EST MORT",
     "eyebrow": "DPAFM #48",
-    "background": "/srv/storage/path/keyart.png",
-    "logo": "/srv/storage/path/logo.png"
+    "background": "/srv/storage/path/native-16x9.png",
+    "logo": "/srv/storage/path/DPAFM.png"
   },
-  "variants": []
+  "variants": ["youtube"]
 }
 ```
 
-### Legacy adapter
+### Legacy automation adapter
 
-```json
-{
-  "template_name": "DPAFM - YT",
-  "output_filename": "dpafm48-youtube.png",
-  "bg_image": "/srv/storage/path/native-16x9.png",
-  "fields": {
-    "title_copy": "LE STAND-UP EST MORT",
-    "eyebrow": "DPAFM #48",
-    "PodLogo": "/srv/storage/path/DPAFM.png"
-  }
-}
-```
-
-`DPAFM - YT` resolves to the production template `dpafm-yt.json`.
-
-## Template model
-
-Coordinates are normalized from `0.0` to `1.0`, so a template remains easy to
-reason about regardless of pixel dimensions. Supported layers: image, rectangle
-and text. Fonts are loaded at runtime; font binaries are not stored in this repo.
+Existing calls such as `DPAFM - YT` still work. They are resolved to show `dpafm`, format `youtube`.
 
 ## Docker
 
@@ -86,23 +136,26 @@ docker compose up -d --build
 curl -fsS http://127.0.0.1:3099/health
 ```
 
-The provided compose file is tailored for the Cloud9 IA Studio deployment.
-Adjust bind mounts for another machine.
+The provided Compose file is intentionally Cloud9-flavoured; change the bind mounts for another machine.
 
 ## Development
 
 ```sh
 cargo test --locked
+
 cd web
 npm ci
 npm run check
 npm run build
 ```
 
-## Privacy
+## No-BS rules
 
-Private assets, production templates, generated media, machine-specific secrets
-and fonts stay outside the repository or under ignored `local/` / `private/`.
+- key art should be generated for the **actual target ratio**;
+- typography belongs to the compositor, not the image model;
+- one show = one style file;
+- private fonts and production assets stay outside Git;
+- a template edit must not require an app rebuild.
 
 ## License
 
