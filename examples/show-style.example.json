@@ -1,0 +1,77 @@
+{
+  "version": 3,
+  "id": "my-show",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "background": "#080808"
+  },
+  "variants": {},
+  "layers": [],
+  "brand": {
+    "display_name": "My Show",
+    "visual_summary": "Short description of the show's visual grammar.",
+    "palette": {
+      "primary": "#FFFFFF",
+      "accent": "#FFD928",
+      "dark": "#080808"
+    },
+    "fonts": {
+      "title": "League Spartan",
+      "eyebrow": "Yanone Kaffeesatz",
+      "utility": "Roboto"
+    },
+    "notes": [
+      "Key art is generated natively for every target ratio.",
+      "Typography and logo placement are deterministic."
+    ]
+  },
+  "formats": {
+    "youtube": {
+      "canvas": {
+        "width": 3840,
+        "height": 2160,
+        "background": "#080808"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "frame": {"x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0},
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1.0
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "frame": {"x": 0.04, "y": 0.68, "width": 0.82, "height": 0.23},
+          "text": "{{title}}",
+          "font_family": "League Spartan",
+          "font_weight": 700,
+          "font_size": 0.08,
+          "color": "#FFFFFF",
+          "stroke_color": "#000000",
+          "stroke_width": 0.005,
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.9,
+          "uppercase": true,
+          "rotation_deg": -2.0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "frame": {"x": 0.80, "y": 0.04, "width": 0.16, "height": 0.18},
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1.0
+        }
+      ]
+    }
+  }
+}

@@ -4,23 +4,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: coverforge:0.2.0
+    image: coverforge:0.3.0
     container_name: coverforge
     restart: unless-stopped
     user: "1000:1000"
     ports:
       - "192.168.1.218:3099:3099"
     environment:
+      HOME: "/tmp/coverforge-home"
+      XDG_CACHE_HOME: "/tmp/coverforge-cache"
       COVERFORGE_BIND: "0.0.0.0:3099"
       COVERFORGE_TEMPLATE_DIR: "/data/templates"
       COVERFORGE_OUTPUT_DIR: "/srv/storage/production/active/IA/n8n/Autopublisher/covers"
       COVERFORGE_ASSET_ROOTS: "/srv/storage/production/active"
-      COVERFORGE_FONT_DIR: "/usr/share/fonts"
+      COVERFORGE_FONT_DIR: "/usr/local/share/fonts/coverforge-custom"
       RUST_LOG: "coverforge=info,tower_http=warn"
     volumes:
       - /srv/storage/production/active:/srv/storage/production/active:ro
       - /srv/storage/production/active/IA/n8n/Autopublisher/covers:/srv/storage/production/active/IA/n8n/Autopublisher/covers:rw
       - /srv/storage/production/active/Assets/CoverForge/Templates:/data/templates:rw
+      - /srv/storage/production/active/Assets/CoverForge/Fonts/Custom:/usr/local/share/fonts/coverforge-custom:rw
     mem_limit: 768m
     mem_reservation: 128m
     pids_limit: 192
