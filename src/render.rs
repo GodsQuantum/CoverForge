@@ -17,6 +17,8 @@ use std::{
 };
 use uuid::Uuid;
 
+const MAX_RENDER_PIXELS: u64 = 50_000_000;
+
 #[derive(Clone)]
 pub struct Renderer {
     template_dir: PathBuf,
@@ -132,6 +134,7 @@ impl Renderer {
     ) -> Result<RenderedAsset> {
         let template = self.load_template(template_id)?;
         let (canvas, layers) = resolve_format(&template, variant)?;
+        validate_canvas(canvas)?;
         let filename = safe_output_filename(requested_filename)?;
         let path = self.output_dir.join(&filename);
         let svg = self.compose_svg(canvas, layers, variables)?;
@@ -207,11 +210,13 @@ impl Renderer {
             .map(safe_name)
             .unwrap_or_else(|| format!("{}-{}", safe_name(&template.id), Uuid::new_v4().simple()));
         let mut assets = Vec::new();
+        let mut used_filenames = BTreeSet::new();
 
         for variant in variants {
             let (canvas, layers) = resolve_format(template, &variant)?;
+            validate_canvas(canvas)?;
             let svg = self.compose_svg(canvas, layers, variables)?;
-            let filename = format!("{stem}-{}.png", safe_name(&variant));
+            let filename = unique_render_filename(&stem, &variant, &mut used_filenames);
             let path = self.output_dir.join(&filename);
             self.rasterize(&svg, canvas, &path)?;
             assets.push(RenderedAsset {
@@ -414,6 +419,7 @@ impl Renderer {
         fx: f32,
         fy: f32,
     ) -> Result<Vec<u8>> {
+        validate_dimensions(w, h, "image layer")?;
         let img = if path
             .extension()
             .and_then(|value| value.to_str())
@@ -443,6 +449,7 @@ impl Renderer {
     }
 
     fn rasterize(&self, svg: &str, canvas: &Canvas, path: &Path) -> Result<()> {
+        validate_canvas(canvas)?;
         let mut options = usvg::Options::default();
         if let Some(dir) = &self.font_dir {
             options.fontdb_mut().load_fonts_dir(dir);
@@ -523,6 +530,36 @@ fn px(f: Frame, c: &Canvas) -> (f32, f32, f32, f32) {
 fn clamp(v: f32) -> f32 {
     v.clamp(0.0, 1.0)
 }
+
+fn validate_dimensions(width: u32, height: u32, label: &str) -> Result<()> {
+    if width == 0 || height == 0 {
+        return Err(anyhow!("{label} dimensions must be positive"));
+    }
+    let pixels = u64::from(width) * u64::from(height);
+    if pixels > MAX_RENDER_PIXELS {
+        return Err(anyhow!(
+            "{label} pixel limit exceeded: {pixels} > {MAX_RENDER_PIXELS}"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_canvas(canvas: &Canvas) -> Result<()> {
+    validate_dimensions(canvas.width, canvas.height, "canvas")
+}
+
+fn unique_render_filename(stem: &str, variant: &str, used: &mut BTreeSet<String>) -> String {
+    let base = format!("{stem}-{}", safe_name(variant));
+    let mut candidate = format!("{base}.png");
+    let mut index = 2usize;
+    while used.contains(&candidate) {
+        candidate = format!("{base}-{index}.png");
+        index += 1;
+    }
+    used.insert(candidate.clone());
+    candidate
+}
+
 fn safe_name(v: &str) -> String {
     v.chars()
         .map(|c| {
@@ -690,6 +727,32 @@ mod tests {
     #[test]
     fn safe_filename_is_deterministic() {
         assert_eq!(safe_name("CF 73 / Rebut!"), "CF_73___Rebut_");
+    }
+
+    #[test]
+    fn oversized_canvas_is_rejected_before_rendering() {
+        let huge = Canvas {
+            width: 100_000,
+            height: 100_000,
+            background: "#000000".into(),
+        };
+        let zero = Canvas {
+            width: 0,
+            height: 1080,
+            background: "#000000".into(),
+        };
+        assert!(validate_canvas(&huge).is_err());
+        assert!(validate_canvas(&zero).is_err());
+    }
+
+    #[test]
+    fn sanitized_variant_filename_collisions_are_unique() {
+        let mut used = BTreeSet::new();
+        let first = unique_render_filename("demo", "a/b", &mut used);
+        let second = unique_render_filename("demo", "a b", &mut used);
+        assert_ne!(first, second);
+        assert_eq!(first, "demo-a_b.png");
+        assert_eq!(second, "demo-a_b-2.png");
     }
 
     #[test]
