@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import AppShell from '../lib/components/AppShell.svelte';
+  import MultiFormatGrid from '../lib/components/MultiFormatGrid.svelte';
   import ProjectHeader from '../lib/components/ProjectHeader.svelte';
+  import SourceImagePanel from '../lib/components/SourceImagePanel.svelte';
+  import { applyReframeToTemplate, toggleFormatSelection } from '../lib/format-state';
   import { tr, type Locale } from '../lib/i18n';
   import { api } from '../lib/api';
   import type {
@@ -10,9 +13,12 @@
     FormatDef,
     Frame,
     Layer,
+    Point,
+    ReframeResult,
     RenderResponse,
     RenderedAsset as Asset,
     TemplateData,
+    UploadedAsset,
     View
   } from '../lib/types';
 
@@ -31,6 +37,14 @@
     background:'',
     logo:''
   });
+
+  let sourceAsset = $state<UploadedAsset|null>(null);
+  let selectedFormats = $state<Set<string>>(new Set());
+  let reframeResults = $state<ReframeResult[]>([]);
+  let focalModes = $state<Record<string,'auto'|'manual'>>({});
+  let globalFocal = $state<Point>({x:0.5,y:0.5});
+  let globalFocalOverride = $state(false);
+  let reframeBusy = $state(false);
 
   let rendering = $state(false);
   let error = $state('');
@@ -150,13 +164,17 @@
     return variants.length ? variants : ['default'];
   }
 
-  function currentCanvasDef():CanvasDef|null {
+  function canvasForFormat(id:string):CanvasDef|null {
     if (!templateData) return null;
     if (Object.keys(templateData.formats || {}).length) {
-      return templateData.formats[activeFormat]?.canvas || null;
+      return templateData.formats[id]?.canvas || null;
     }
-    if (activeFormat === 'default') return templateData.canvas;
-    return templateData.variants?.[activeFormat] || templateData.canvas;
+    if (id === 'default') return templateData.canvas;
+    return templateData.variants?.[id] || templateData.canvas;
+  }
+
+  function currentCanvasDef():CanvasDef|null {
+    return canvasForFormat(activeFormat);
   }
 
   function currentLayers():Layer[] {
@@ -437,6 +455,11 @@
     templateJson = JSON.stringify(templateData, null, 2);
     const keys = formatKeys();
     activeFormat = keys[0] || 'default';
+    selectedFormats = new Set(keys);
+    focalModes = Object.fromEntries(keys.map((key) => [key,'auto' as const]));
+    reframeResults = [];
+    globalFocal = {x:0.5,y:0.5};
+    globalFocalOverride = false;
     selectedLayerId = currentLayers().at(-1)?.id || currentLayers()[0]?.id || '';
     for (const key of collectVariableNames()) {
       if (!(key in variables)) variables[key] = '';
@@ -458,6 +481,70 @@
     selectedLayerId = currentLayers().at(-1)?.id || currentLayers()[0]?.id || '';
     assets = [];
     await rebuildCanvas();
+  }
+
+  function reframeTargets() {
+    return formatKeys().flatMap((id) => {
+      const canvas = canvasForFormat(id);
+      return canvas ? [{id,width:canvas.width,height:canvas.height}] : [];
+    });
+  }
+
+  function toggleSelectedFormat(id:string) {
+    if (!formatKeys().includes(id)) return;
+    selectedFormats = toggleFormatSelection(selectedFormats,id);
+  }
+
+  async function runSmartReframe(override:Point|null = globalFocalOverride ? globalFocal : null) {
+    if (!sourceAsset || !templateData) return;
+    reframeBusy = true;
+    error = '';
+    try {
+      const results = await api.reframe({
+        asset:sourceAsset.path,
+        formats:reframeTargets(),
+        focal_override:override
+      });
+      reframeResults = results;
+      if (!override && results[0]) globalFocal = {...results[0].focal};
+      const automatic = results.filter((entry) => focalModes[entry.format] !== 'manual');
+      if (automatic.length) {
+        templateData = applyReframeToTemplate(templateData,automatic);
+        templateJson = JSON.stringify(templateData,null,2);
+        dirty = true;
+        pushHistory();
+        await rebuildCanvas();
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    } finally {
+      reframeBusy = false;
+    }
+  }
+
+  async function handleSourceUploaded(uploaded:UploadedAsset) {
+    sourceAsset = uploaded;
+    variables.background = uploaded.path;
+    globalFocalOverride = false;
+    globalFocal = {x:0.5,y:0.5};
+    if (!selectedFormats.size) selectedFormats = new Set(formatKeys());
+    await runSmartReframe(null);
+  }
+
+  async function setGlobalFocal(point:Point) {
+    globalFocal = point;
+    globalFocalOverride = true;
+    await runSmartReframe(point);
+  }
+
+  async function resetGlobalReframe() {
+    globalFocalOverride = false;
+    await runSmartReframe(null);
+  }
+
+  async function resetFormatToAuto(id:string) {
+    focalModes = {...focalModes,[id]:'auto'};
+    await runSmartReframe(globalFocalOverride ? globalFocal : null);
   }
 
   async function saveTemplate() {
@@ -611,6 +698,9 @@
     if (!layer) return;
     const previousSuggestedName = humanizeLayerName(layer);
     (layer as any)[key] = value;
+    if (layer.type === 'image' && (key === 'focal_x' || key === 'focal_y')) {
+      focalModes = {...focalModes, [activeFormat]:'manual'};
+    }
     if ((key === 'text' || key === 'source') && (!layer.name || layer.name === 'Texte' || layer.name === 'Image' || layer.name === previousSuggestedName)) {
       layer.name = humanizeLayerName(layer);
     }
@@ -1001,6 +1091,31 @@
     {#if error}<div class="global-error">{error}</div>{/if}
 
     {#if activeView === 'project' || activeView === 'composer'}
+      {#if templateData}
+        <section class="create-overview">
+          <SourceImagePanel
+            {locale}
+            asset={sourceAsset}
+            focal={globalFocal}
+            busy={reframeBusy}
+            onUploaded={handleSourceUploaded}
+            onSmartReframe={() => runSmartReframe()}
+            onReset={resetGlobalReframe}
+            onFocalChange={setGlobalFocal}
+          />
+          <MultiFormatGrid
+            template={templateData}
+            sourceUrl={sourceAsset?.url || ''}
+            {selectedFormats}
+            {activeFormat}
+            results={reframeResults}
+            modes={focalModes}
+            onToggle={toggleSelectedFormat}
+            onOpen={(id) => void chooseFormat(id)}
+            onResetAuto={resetFormatToAuto}
+          />
+        </section>
+      {/if}
       <section class="studio">
         <aside class="layers-panel panel">
           <div class="panel-head">

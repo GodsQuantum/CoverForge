@@ -1,4 +1,13 @@
-import type { FontRecord, InlineRenderRequest, RenderRequest, RenderResponse, TemplateData } from './types';
+import type {
+  FontRecord,
+  InlineRenderRequest,
+  ReframeRequest,
+  ReframeResult,
+  RenderRequest,
+  RenderResponse,
+  TemplateData,
+  UploadedAsset
+} from './types';
 
 async function json<T>(input:RequestInfo | URL, init?:RequestInit):Promise<T> {
   const res = await fetch(input, init);
@@ -27,6 +36,18 @@ export const api = {
   async listFonts():Promise<FontRecord[]> {
     const data = await json<{fonts:FontRecord[]}>('/v1/fonts');
     return Array.isArray(data.fonts) ? data.fonts : [];
+  },
+  async uploadAsset(file:File):Promise<UploadedAsset> {
+    const body = new FormData();
+    body.append('asset', file);
+    return json<UploadedAsset>('/v1/assets', {method:'POST', body});
+  },
+  reframe(request:ReframeRequest):Promise<ReframeResult[]> {
+    return json<ReframeResult[]>('/v1/reframe', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify(request)
+    });
   },
   render(request:RenderRequest):Promise<RenderResponse> {
     return json<RenderResponse>('/v1/render', {
