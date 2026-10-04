@@ -1,18 +1,24 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import AppShell from '../lib/components/AppShell.svelte';
+  import AssetLibrary from '../lib/components/AssetLibrary.svelte';
+  import BrandKitPanel from '../lib/components/BrandKitPanel.svelte';
+  import ExportPanel from '../lib/components/ExportPanel.svelte';
+  import LayerInspector from '../lib/components/LayerInspector.svelte';
   import MultiFormatGrid from '../lib/components/MultiFormatGrid.svelte';
   import ProjectHeader from '../lib/components/ProjectHeader.svelte';
   import SourceImagePanel from '../lib/components/SourceImagePanel.svelte';
-  import { applyReframeToTemplate, toggleFormatSelection } from '../lib/format-state';
+  import { applyReframeToTemplate, normalizeSelectedFormats, toggleFormatSelection } from '../lib/format-state';
   import { tr, type Locale } from '../lib/i18n';
   import { api } from '../lib/api';
   import type {
+    BrandStyle,
     CanvasDef,
     FontRecord,
     FormatDef,
     Frame,
     Layer,
+    PackageRenderResponse,
     Point,
     ReframeResult,
     RenderResponse,
@@ -39,6 +45,8 @@
   });
 
   let sourceAsset = $state<UploadedAsset|null>(null);
+  let sessionAssets = $state<UploadedAsset[]>([]);
+  let exportHistory = $state<PackageRenderResponse[]>([]);
   let selectedFormats = $state<Set<string>>(new Set());
   let reframeResults = $state<ReframeResult[]>([]);
   let focalModes = $state<Record<string,'auto'|'manual'>>({});
@@ -334,11 +342,7 @@
     fontStatus = '';
     error = '';
     try {
-      const body = new FormData();
-      body.append('font', file);
-      const res = await fetch('/v1/fonts', { method:'POST', body });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Font upload failed');
+      const data = await api.uploadFont(file);
       fontStatus = 'Ajoutée : ' + data.family + ' · ' + data.style;
       await loadFonts();
       input.value = '';
@@ -354,9 +358,7 @@
     error = '';
     fontStatus = '';
     try {
-      const res = await fetch('/v1/fonts/' + encodeURIComponent(f.filename), { method:'DELETE' });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Delete failed');
+      await api.deleteFont(f.filename);
       fontStatus = 'Supprimée : ' + f.family;
       await loadFonts();
     } catch (e) {
@@ -522,7 +524,14 @@
     }
   }
 
+  function rememberAsset(uploaded:UploadedAsset) {
+    if (!sessionAssets.some((asset) => asset.id === uploaded.id)) {
+      sessionAssets = [uploaded,...sessionAssets];
+    }
+  }
+
   async function handleSourceUploaded(uploaded:UploadedAsset) {
+    rememberAsset(uploaded);
     sourceAsset = uploaded;
     variables.background = uploaded.path;
     globalFocalOverride = false;
@@ -545,6 +554,45 @@
   async function resetFormatToAuto(id:string) {
     focalModes = {...focalModes,[id]:'auto'};
     await runSmartReframe(globalFocalOverride ? globalFocal : null);
+  }
+
+  function updateBrand(brand:NonNullable<TemplateData['brand']>) {
+    if (!templateData) return;
+    templateData.brand = brand;
+    const primary = brand.logos?.primary?.trim();
+    if (primary) variables.logo = primary;
+    markChanged(false);
+    void rebuildCanvas();
+  }
+
+  async function useSessionBackground(asset:UploadedAsset) {
+    rememberAsset(asset);
+    sourceAsset = asset;
+    variables.background = asset.path;
+    globalFocalOverride = false;
+    globalFocal = {x:0.5,y:0.5};
+    if (asset.kind !== 'logo') {
+      await runSmartReframe(null);
+    } else {
+      await rebuildCanvas();
+    }
+  }
+
+  function useSessionLogo(asset:UploadedAsset) {
+    rememberAsset(asset);
+    variables.logo = asset.path;
+    if (templateData) {
+      const brand = deepClone(templateData.brand || {});
+      brand.logos ||= {};
+      brand.logos.primary = asset.path;
+      templateData.brand = brand;
+      markChanged(false);
+    }
+    void rebuildCanvas();
+  }
+
+  function rememberExport(response:PackageRenderResponse) {
+    exportHistory = [response,...exportHistory.filter((item)=>item.package_filename!==response.package_filename)].slice(0,30);
   }
 
   async function saveTemplate() {
@@ -1196,195 +1244,54 @@
           {/if}
         </section>
 
-        <aside class="inspector panel">
-          <div class="panel-head"><div><strong>Propriétés</strong><span>{selectedLayer()?.type || 'aucun calque'}</span></div></div>
-
-          {#if selectedLayer()}
-            {@const layer = selectedLayer()!}
-            <div class="inspector-body">
-              <div class="field">
-                <span class="field-label">Nom du calque</span>
-                <input class="input" value={layer.name || ''} oninput={(e) => setLayerValue('name',(e.currentTarget as HTMLInputElement).value,false)} />
-              </div>
-
-              <div class="field">
-                <span class="field-label">ID / clé API</span>
-                <input class="input mono" value={layer.id} readonly />
-              </div>
-
-              <div class="subhead">Position & taille</div>
-              <div class="range-grid">
-                <label class="range-field">
-                  <span>X</span>
-                  <input type="range" min="-50" max="150" step="0.1" value={framePercent(layer,'x')} oninput={(e)=>setFramePercent('x',+(e.currentTarget as HTMLInputElement).value)} />
-                  <input class="range-number" type="number" min="-100" max="200" step="0.1" value={framePercent(layer,'x')} oninput={(e)=>setFramePercent('x',+(e.currentTarget as HTMLInputElement).value)} />
-                  <em>%</em>
-                </label>
-                <label class="range-field">
-                  <span>Y</span>
-                  <input type="range" min="-50" max="150" step="0.1" value={framePercent(layer,'y')} oninput={(e)=>setFramePercent('y',+(e.currentTarget as HTMLInputElement).value)} />
-                  <input class="range-number" type="number" min="-100" max="200" step="0.1" value={framePercent(layer,'y')} oninput={(e)=>setFramePercent('y',+(e.currentTarget as HTMLInputElement).value)} />
-                  <em>%</em>
-                </label>
-                <label class="range-field">
-                  <span>L</span>
-                  <input type="range" min="1" max="200" step="0.1" value={framePercent(layer,'width')} oninput={(e)=>setFramePercent('width',+(e.currentTarget as HTMLInputElement).value)} />
-                  <input class="range-number" type="number" min="0.1" max="200" step="0.1" value={framePercent(layer,'width')} oninput={(e)=>setFramePercent('width',+(e.currentTarget as HTMLInputElement).value)} />
-                  <em>%</em>
-                </label>
-                <label class="range-field">
-                  <span>H</span>
-                  <input type="range" min="1" max="200" step="0.1" value={framePercent(layer,'height')} oninput={(e)=>setFramePercent('height',+(e.currentTarget as HTMLInputElement).value)} />
-                  <input class="range-number" type="number" min="0.1" max="200" step="0.1" value={framePercent(layer,'height')} oninput={(e)=>setFramePercent('height',+(e.currentTarget as HTMLInputElement).value)} />
-                  <em>%</em>
-                </label>
-              </div>
-
-              <div class="toggle-row">
-                <label><input type="checkbox" checked={layer.visible!==false} onchange={() => toggleLayerVisible(layer)} /> Visible</label>
-                <label><input type="checkbox" checked={layer.locked===true} onchange={() => toggleLayerLocked(layer)} /> Verrouillé</label>
-              </div>
-
-              {#if layer.type === 'text'}
-                <div class="subhead">Texte</div>
-                <div class="field">
-                  <span class="field-label">Contenu / variable</span>
-                  <textarea class="textarea compact-area" value={layer.text || ''} oninput={(e)=>setLayerValue('text',(e.currentTarget as HTMLTextAreaElement).value)}></textarea>
-                  <span class="help">Variables API : <code>{'{{title}}'}</code>, <code>{'{{episode}}'}</code>, <code>{'{{subtitle}}'}</code>…</span>
-                </div>
-                <div class="grid two font-pickers">
-                  <label class="mini-field">
-                    <span>Famille</span>
-                    <input class="input" list="font-families" value={layer.font_family || ''} onchange={(e)=>void setFontFamily((e.currentTarget as HTMLInputElement).value)} />
-                    <datalist id="font-families">{#each availableFontFamilies() as family}<option value={family}></option>{/each}</datalist>
-                  </label>
-                  <label class="mini-field">
-                    <span>Variante</span>
-                    <select value={currentFontFaceKey(layer)} onchange={(e)=>void setFontFace((e.currentTarget as HTMLSelectElement).value)}>
-                      {#each fontFacesForFamily(layer.font_family || '') as face}
-                        <option value={fontFaceKey(face)}>{face.style || 'Regular'} · {fontWeight(face)}{fontStyle(face)==='italic'?' · italic':''}</option>
-                      {/each}
-                    </select>
-                  </label>
-                </div>
-                <label class="range-field">
-                  <span>Taille</span>
-                  <input type="range" min="0.5" max="30" step="0.1" value={scalarPercent(layer.font_size || 0.06)} oninput={(e)=>setLayerPercent('font_size',+(e.currentTarget as HTMLInputElement).value)} />
-                  <input class="range-number" type="number" min="0.1" max="50" step="0.1" value={scalarPercent(layer.font_size || 0.06)} oninput={(e)=>setLayerPercent('font_size',+(e.currentTarget as HTMLInputElement).value)} />
-                  <em>% H</em>
-                </label>
-                <div class="toggle-row">
-                  <label><input type="checkbox" checked={layer.auto_fit===true} onchange={(e)=>setLayerValue('auto_fit',(e.currentTarget as HTMLInputElement).checked)} /> Adapter au bloc</label>
-                  <label><input type="checkbox" checked={layer.uppercase===true} onchange={(e)=>setLayerValue('uppercase',(e.currentTarget as HTMLInputElement).checked)} /> Capitales</label>
-                </div>
-                {#if layer.auto_fit}
-                  <div class="range-grid compact-ranges">
-                    <label class="range-field">
-                      <span>Taille mini</span>
-                      <input type="range" min="0.2" max="20" step="0.1" value={scalarPercent(layer.min_font_size || 0.015)} oninput={(e)=>setLayerPercent('min_font_size',+(e.currentTarget as HTMLInputElement).value)} />
-                      <input class="range-number" type="number" min="0.1" max="30" step="0.1" value={scalarPercent(layer.min_font_size || 0.015)} oninput={(e)=>setLayerPercent('min_font_size',+(e.currentTarget as HTMLInputElement).value)} />
-                      <em>% H</em>
-                    </label>
-                    <label class="range-field">
-                      <span>Lignes</span>
-                      <input type="range" min="1" max="12" step="1" value={layer.max_lines || 4} oninput={(e)=>setLayerValue('max_lines',+(e.currentTarget as HTMLInputElement).value)} />
-                      <input class="range-number" type="number" min="1" max="20" step="1" value={layer.max_lines || 4} oninput={(e)=>setLayerValue('max_lines',+(e.currentTarget as HTMLInputElement).value)} />
-                      <em>max</em>
-                    </label>
-                  </div>
-                {/if}
-                <details class="advanced-block">
-                  <summary>Typographie avancée</summary>
-                  <div class="advanced-content">
-                    <div class="grid two">
-                      <label class="mini-field"><span>Graisse CSS</span><input type="number" min="100" max="1000" step="10" value={layer.font_weight || 700} onchange={(e)=>setLayerValue('font_weight',+(e.currentTarget as HTMLInputElement).value)} /></label>
-                      <label class="mini-field"><span>Interligne</span><input type="number" min="0.5" max="3" step="0.05" value={layer.line_height || 1} onchange={(e)=>setLayerValue('line_height',+(e.currentTarget as HTMLInputElement).value)} /></label>
-                    </div>
-                    <label class="range-field">
-                      <span>Rotation</span>
-                      <input type="range" min="-180" max="180" step="1" value={layer.rotation_deg || 0} oninput={(e)=>setLayerValue('rotation_deg',+(e.currentTarget as HTMLInputElement).value)} />
-                      <input class="range-number" type="number" min="-360" max="360" step="1" value={layer.rotation_deg || 0} oninput={(e)=>setLayerValue('rotation_deg',+(e.currentTarget as HTMLInputElement).value)} />
-                      <em>°</em>
-                    </label>
-                    <label class="range-field">
-                      <span>Opacité</span>
-                      <input type="range" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                      <input class="range-number" type="number" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                      <em>%</em>
-                    </label>
-                    <div class="grid two">
-                      <label class="mini-field"><span>Couleur</span><input type="color" value={layer.color || '#ffffff'} oninput={(e)=>setLayerValue('color',(e.currentTarget as HTMLInputElement).value)} /></label>
-                      <label class="mini-field"><span>Alignement</span>
-                        <select value={layer.align || 'left'} onchange={(e)=>setLayerValue('align',(e.currentTarget as HTMLSelectElement).value)}>
-                          <option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div class="grid two">
-                      <label class="mini-field"><span>Contour</span><input type="color" value={layer.stroke_color || '#000000'} oninput={(e)=>setLayerValue('stroke_color',(e.currentTarget as HTMLInputElement).value)} /></label>
-                      <label class="mini-field"><span>Épaisseur</span><input type="number" min="0" max="0.05" step="0.0005" value={layer.stroke_width || 0} onchange={(e)=>setLayerValue('stroke_width',+(e.currentTarget as HTMLInputElement).value)} /></label>
-                    </div>
-                  </div>
-                </details>
-              {:else if layer.type === 'image'}
-                <div class="subhead">Image</div>
-                <div class="field">
-                  <span class="field-label">Source / variable</span>
-                  <input class="input mono" value={layer.source || ''} oninput={(e)=>setLayerValue('source',(e.currentTarget as HTMLInputElement).value)} />
-                </div>
-                <div class="grid two">
-                  <label class="mini-field"><span>Ajustement</span>
-                    <select value={layer.fit || 'cover'} onchange={(e)=>setLayerValue('fit',(e.currentTarget as HTMLSelectElement).value)}>
-                      <option value="cover">Cover</option><option value="contain">Contain</option>
-                    </select>
-                  </label>
-                </div>
-                <div class="range-grid compact-ranges">
-                  <label class="range-field">
-                    <span>Opacité</span>
-                    <input type="range" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                    <input class="range-number" type="number" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                    <em>%</em>
-                  </label>
-                  <label class="range-field">
-                    <span>Focal X</span>
-                    <input type="range" min="0" max="100" step="1" value={scalarPercent(layer.focal_x ?? 0.5)} oninput={(e)=>setLayerPercent('focal_x',+(e.currentTarget as HTMLInputElement).value)} />
-                    <input class="range-number" type="number" min="0" max="100" step="1" value={scalarPercent(layer.focal_x ?? 0.5)} oninput={(e)=>setLayerPercent('focal_x',+(e.currentTarget as HTMLInputElement).value)} />
-                    <em>%</em>
-                  </label>
-                  <label class="range-field">
-                    <span>Focal Y</span>
-                    <input type="range" min="0" max="100" step="1" value={scalarPercent(layer.focal_y ?? 0.5)} oninput={(e)=>setLayerPercent('focal_y',+(e.currentTarget as HTMLInputElement).value)} />
-                    <input class="range-number" type="number" min="0" max="100" step="1" value={scalarPercent(layer.focal_y ?? 0.5)} oninput={(e)=>setLayerPercent('focal_y',+(e.currentTarget as HTMLInputElement).value)} />
-                    <em>%</em>
-                  </label>
-                </div>
-              {:else}
-                <div class="subhead">Rectangle</div>
-                <div class="grid two">
-                  <label class="mini-field"><span>Couleur</span><input type="color" value={layer.fill || '#111111'} oninput={(e)=>setLayerValue('fill',(e.currentTarget as HTMLInputElement).value)} /></label>
-                </div>
-                <div class="range-grid compact-ranges">
-                  <label class="range-field">
-                    <span>Opacité</span>
-                    <input type="range" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                    <input class="range-number" type="number" min="0" max="100" step="1" value={scalarPercent(layer.opacity ?? 1)} oninput={(e)=>setLayerPercent('opacity',+(e.currentTarget as HTMLInputElement).value)} />
-                    <em>%</em>
-                  </label>
-                  <label class="range-field">
-                    <span>Rayon</span>
-                    <input type="range" min="0" max="50" step="0.5" value={scalarPercent(layer.radius || 0)} oninput={(e)=>setLayerPercent('radius',+(e.currentTarget as HTMLInputElement).value)} />
-                    <input class="range-number" type="number" min="0" max="50" step="0.5" value={scalarPercent(layer.radius || 0)} oninput={(e)=>setLayerPercent('radius',+(e.currentTarget as HTMLInputElement).value)} />
-                    <em>%</em>
-                  </label>
-                </div>
-              {/if}
-            </div>
-          {:else}
-            <div class="empty-inspector">Sélectionne un calque sur le canvas ou dans la pile.</div>
-          {/if}
-        </aside>
+        <LayerInspector
+          layer={selectedLayer()}
+          {fonts}
+          onValue={(key,value,rebuild=true)=>setLayerValue(key,value,rebuild)}
+          onFramePercent={setFramePercent}
+          onScalarPercent={setLayerPercent}
+          onToggleVisible={toggleLayerVisible}
+          onToggleLocked={toggleLayerLocked}
+          onFontFamily={setFontFamily}
+          onFontFace={setFontFace}
+        />
       </section>
+
+    {:else if activeView === 'library'}
+      <AssetLibrary
+        assets={sessionAssets}
+        brand={templateData?.brand || {}}
+        onBackground={useSessionBackground}
+        onLogo={useSessionLogo}
+      />
+
+    {:else if activeView === 'brand'}
+      {#if templateData}
+        <BrandKitPanel
+          brand={templateData.brand || {}}
+          {fonts}
+          onChange={updateBrand}
+          onAssetUploaded={rememberAsset}
+        />
+      {:else}
+        <section class="page-section"><div class="panel empty-library">Charge un modèle pour éditer son Brand Kit / 请先加载模板</div></section>
+      {/if}
+
+    {:else if activeView === 'exports'}
+      {#if templateData}
+        <ExportPanel
+          templateId={template}
+          template={templateData}
+          {dirty}
+          {variables}
+          selectedFormats={normalizeSelectedFormats(selectedFormats,formatKeys(),activeFormat)}
+          allFormats={formatKeys()}
+          history={exportHistory}
+          onPackage={rememberExport}
+        />
+      {:else}
+        <section class="page-section"><div class="panel empty-library">Charge un modèle pour exporter / 请先加载模板</div></section>
+      {/if}
 
     {:else if activeView === 'fonts'}
       <section class="page-section">

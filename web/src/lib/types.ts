@@ -114,3 +114,37 @@ export type ReframeResult = {
   focal:Point;
   score:number;
 };
+
+export type PackageRenderRequest = {
+  template?:string;
+  inline_template?:TemplateData;
+  variables?:Record<string,string>;
+  variants?:string[];
+  output_stem?:string;
+};
+
+export type PackageManifestAsset = {
+  variant:string;
+  width:number;
+  height:number;
+  filename:string;
+};
+
+export type PackageManifest = {
+  coverforge_version:string;
+  generated_at:string;
+  template:string;
+  source_image?:string|null;
+  variables:Record<string,string>;
+  assets:PackageManifestAsset[];
+};
+
+export type PackageRenderResponse = {
+  ok:boolean;
+  template:string;
+  assets:RenderedAsset[];
+  package_filename:string;
+  package_path:string;
+  package_url:string;
+  manifest:PackageManifest;
+};
