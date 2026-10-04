@@ -27,6 +27,8 @@ pub struct BrandStyle {
     #[serde(default)]
     pub fonts: BTreeMap<String, String>,
     #[serde(default)]
+    pub logos: BTreeMap<String, String>,
+    #[serde(default)]
     pub notes: Vec<String>,
 }
 
@@ -35,6 +37,14 @@ pub struct FormatTemplate {
     pub canvas: Canvas,
     #[serde(default)]
     pub layers: Vec<Layer>,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub category: String,
+    #[serde(default)]
+    pub platform: String,
+    #[serde(default)]
+    pub suffix: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,6 +267,60 @@ pub struct RenderResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn v05_templates_load_without_v06_metadata() {
+        let raw = r##"{
+          "version":1,
+          "id":"legacy",
+          "canvas":{"width":1080,"height":1080,"background":"#000000"},
+          "variants":{},
+          "layers":[],
+          "brand":{"display_name":"Legacy"},
+          "formats":{"square":{"canvas":{"width":1080,"height":1080,"background":"#000000"},"layers":[]}}
+        }"##;
+        let template: Template = serde_json::from_str(raw).expect("v0.5 template");
+        assert!(template.brand.logos.is_empty());
+        let format = template.formats.get("square").unwrap();
+        assert!(format.label.is_empty());
+        assert!(format.category.is_empty());
+        assert!(format.platform.is_empty());
+        assert!(format.suffix.is_empty());
+    }
+
+    #[test]
+    fn starter_brand_contract() {
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("templates/starter-brand.json");
+        let raw = std::fs::read_to_string(path).expect("starter-brand template must exist");
+        let template: Template = serde_json::from_str(&raw).expect("valid starter-brand template");
+        assert_eq!(template.id, "starter-brand");
+        let expected = [
+            ("youtube", 1920, 1080),
+            ("square", 1080, 1080),
+            ("feed", 1080, 1350),
+            ("vertical", 1080, 1920),
+            ("landscape", 1200, 628),
+        ];
+        for (id, width, height) in expected {
+            let format = template.formats.get(id).expect("required starter format");
+            assert_eq!((format.canvas.width, format.canvas.height), (width, height));
+            assert!(format.layers.iter().any(
+                |layer| matches!(layer, Layer::Image { source, .. } if source == "{{background}}")
+            ));
+            assert!(format.layers.iter().any(|layer| matches!(layer, Layer::Text { text, auto_fit: true, .. } if text.contains("{{title}}"))));
+        }
+        let serialized = serde_json::to_string(&template).unwrap();
+        for variable in [
+            "{{background}}",
+            "{{logo}}",
+            "{{title}}",
+            "{{subtitle}}",
+            "{{badge}}",
+        ] {
+            assert!(serialized.contains(variable), "missing {variable}");
+        }
+    }
 
     #[test]
     fn legacy_text_layer_defaults_are_backward_compatible() {

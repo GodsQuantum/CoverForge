@@ -1,131 +1,138 @@
-# Show styles
+# Modèles de marque / 品牌模板
 
-CoverForge v0.4 uses **one JSON file per show**.
+CoverForge utilise **un document JSON par modèle de marque ou projet réutilisable**. Le JSON est la source de vérité : Fabric.js sert à l'édition interactive, tandis que Rust/resvg effectue le rendu de production déterministe.
 
-A show file contains brand identity, palette, fonts and every output layout.
+## Structure
 
-Production layout:
+Un modèle peut contenir :
 
-```text
-Templates/
-├── arezki.json
-├── cf.json
-├── cp.json
-├── dpafm.json
-├── lcfp.json
-└── ur2w.json
-```
+- `brand` : nom, description visuelle, palette, polices, logos et notes ;
+- `formats` : mises en page indépendantes par ratio ou plateforme ;
+- `layers` : image, texte et rectangle ;
+- des variables comme `{{background}}`, `{{logo}}`, `{{title}}`, `{{subtitle}}` ou `{{badge}}`.
 
-Each file contains five formats:
-
-- `youtube` — 3840×2160
-- `square` — 1200×1200
-- `feed` — 1080×1350
-- `vertical` — 2160×3840
-- `acast` — 3000×3000
-
-## Why one file per show
-
-A podcast identity is a system, not five unrelated files. One show JSON gives one source of truth for palette, typography, notes and all placements. It also makes new-show creation and review much simpler.
-
-## Native key art
-
-CoverForge does not turn one widescreen image into every social format. The preferred pipeline is:
+Exemple générique livré avec l'application :
 
 ```text
-editorial direction
-    ↓
-native 16:9 key art
-native 1:1 key art
-native 4:5 key art
-native 9:16 key art
-    ↓
-CoverForge typography / logo / branding
+templates/
+└── starter-brand.json
 ```
 
-Acast normally reuses the native square key art with its own 3000×3000 final layout.
+`starter-brand` fournit :
 
-## Current show grammar
+- `youtube` — 1920×1080 ;
+- `square` — 1080×1080 ;
+- `feed` — 1080×1350 ;
+- `vertical` — 1080×1920 ;
+- `landscape` — 1200×628.
 
-### CF — Chougar Free
+Chaque format possède sa propre pile de calques afin que le cadrage, le logo et la typographie puissent être adaptés au ratio sans modifier les autres sorties.
 
-Derived from recent channel thumbnails such as Rebut de Presse, La Fin de l'Algorithme and episode 70:
+## Priorité des modèles
 
-- energetic editorial collage;
-- expressive faces;
-- episode-specific environment;
-- large white title with strong black outline;
-- slight title rotation;
-- yellow/cyan accent;
-- show mark secondary to episode art.
+CoverForge distingue deux répertoires :
 
-### DPAFM — Dernier Podcast Avant la Fin du Monde
+1. `COVERFORGE_TEMPLATE_DIR` — modèles utilisateur persistants et éditables ;
+2. `COVERFORGE_DEFAULT_TEMPLATE_DIR` — modèles intégrés en lecture seule dans l'image Docker.
 
-Derived from Apps de dating, Le Ski, Le Nouvel An and Noël:
+Un modèle utilisateur portant le même identifiant qu'un modèle intégré **prend toujours la priorité**. Une sauvegarde écrit uniquement dans le répertoire utilisateur. Cette règle permet de livrer `starter-brand` sans toucher aux modèles de production existants ni ajouter un mount.
 
-- cinematic real-world scenario first;
-- people integrated into the action rather than isolated portraits;
-- physical visual joke tied to episode content;
-- organic hand-drawn/display title;
-- large black outline;
-- show logo anchored low-left;
-- apocalyptic / absurd treatment when supported by episode content.
+## Calques
 
-### LCFP — Le Crime Farpait
+Tous les calques partagent :
 
-Derived from Le Clown Tueur and P*rno Mortel:
+- `id` — clé stable pour l'API ;
+- `name` — libellé humain ;
+- `visible` et `locked` ;
+- `frame.x/y/width/height` — coordonnées normalisées.
 
-- tabloid/parody true-crime composition;
-- very large characters;
-- crime-specific environment;
-- yellow/red/white typography;
-- show logo upper-left;
-- brutal short title near lower-left;
-- avoid generic evidence-board imagery unless the episode actually calls for it.
+### Image
 
-### CP — Conspi Passion
+Une image définit notamment :
 
-- pulp/conspiracy-cinema;
-- concrete episode-specific clues;
-- acidic contrast;
-- condensed typography;
-- avoid automatic cork-board/red-string cliché.
+- `source` — chemin ou variable ;
+- `fit: "cover" | "contain"` ;
+- `focal_x`, `focal_y` ;
+- `opacity`.
 
-### UR2W
+Les uploads CoverForge et les chemins autorisés peuvent être utilisés immédiatement comme source.
 
-- abrasive pop/culture collage;
-- dominant portraits;
-- pink/cyan accents;
-- intentionally less institutional/polished.
+### Texte
 
-### AREZKI
+Un texte peut définir :
 
-- direct stand-up/editorial identity;
-- strong subject-driven visual;
-- compressed readable typography;
-- no generic influencer/corporate aesthetic.
+- `font_family`, `font_weight`, `font_style` ;
+- `font_size`, `min_font_size`, `auto_fit` ;
+- `max_lines`, `line_height` ;
+- `color`, contour, alignement, rotation et opacité.
 
-## Editing
+Les variables sont découvertes automatiquement depuis les chaînes `{{...}}`.
 
-The v0.4 Studio keeps the show JSON as the source of truth while Fabric.js is only the interactive editing surface. Every format can own its own layer stack, so a title, episode number, subtitle, logo or image can be positioned independently for YouTube, square, feed, vertical and Acast.
+### Rectangle
 
-Every layer supports:
+Un rectangle définit :
 
-- `id` — stable API key;
-- `name` — human-readable Studio label;
-- `visible` and `locked`;
-- normalized `frame.x/y/width/height`.
+- `fill` ;
+- `opacity` ;
+- `radius`.
 
-Text layers additionally support `auto_fit`, `min_font_size`, `max_lines`, opacity, stroke, alignment and rotation. Variables are discovered dynamically from strings such as `{{title}}`, `{{episode}}` or `{{subtitle}}`; agents are not limited to a fixed field list.
+## Métadonnées de format
 
-The browser canvas updates interactively, while `POST /v1/render/preview` accepts an inline unsaved template and renders it through the exact Rust/resvg production path.
+Les champs suivants sont optionnels et rétrocompatibles :
 
-The UI writes the complete show JSON atomically.
+- `label` ;
+- `category` ;
+- `platform` ;
+- `suffix`.
 
-Production path on Cloud9:
+Les anciens JSON v0.5 sans ces champs restent valides.
+
+## API
+
+Les agents peuvent découvrir les champs d'autofill avec :
+
+```text
+GET /v1/templates/{id}/dataset
+```
+
+Le preview d'un modèle non sauvegardé utilise exactement le renderer Rust de production :
+
+```text
+POST /v1/render/preview
+```
+
+## Compatibilité des émissions existantes
+
+Les modèles historiques `cf`, `cp`, `dpafm`, `lcfp`, `arezki` et `ur2w` restent des modèles CoverForge valides. Ils représentent simplement des brand kits spécialisés pour des émissions.
+
+Le chemin Cloud9 actuel reste :
 
 ```text
 /srv/storage/production/active/Assets/CoverForge/Templates/
 ```
 
-No rebuild is required after a template edit.
+Aucun renommage, déplacement ou changement de mount n'est requis.
+
+---
+
+# 品牌模板
+
+CoverForge 使用**每个可复用品牌模板/项目一个 JSON 文档**。JSON 是唯一真实来源；Fabric.js 只负责交互编辑，Rust/resvg 负责确定性的生产渲染。
+
+模板可包含：
+
+- `brand`：名称、视觉说明、配色、字体、Logo、备注；
+- `formats`：针对不同平台或比例的独立布局；
+- `layers`：图片、文字、矩形；
+- `{{background}}`、`{{logo}}`、`{{title}}`、`{{subtitle}}`、`{{badge}}` 等变量。
+
+内置的 `starter-brand` 提供 16:9、1:1、4:5、9:16 和 1.91:1 五种常用输出。
+
+## 模板优先级
+
+1. `COVERFORGE_TEMPLATE_DIR`：用户可编辑的持久模板；
+2. `COVERFORGE_DEFAULT_TEMPLATE_DIR`：Docker 镜像内置的只读模板。
+
+同名时用户模板优先；保存操作永远只写入用户目录。因此可以升级内置模板而不覆盖生产模板。
+
+旧的节目模板仍完全兼容，只是现在被视为通用品牌模板的一种具体用途。

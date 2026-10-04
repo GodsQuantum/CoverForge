@@ -15,6 +15,7 @@ services:
       XDG_CACHE_HOME: "/tmp/coverforge-cache"
       COVERFORGE_BIND: "0.0.0.0:3099"
       COVERFORGE_TEMPLATE_DIR: "/data/templates"
+      COVERFORGE_DEFAULT_TEMPLATE_DIR: "/app/default-templates"
       COVERFORGE_OUTPUT_DIR: "/srv/storage/production/active/IA/n8n/Autopublisher/covers"
       COVERFORGE_ASSET_ROOTS: "/srv/storage/production/active"
       COVERFORGE_FONT_DIR: "/usr/local/share/fonts/coverforge-custom"

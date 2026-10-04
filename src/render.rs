@@ -10,7 +10,7 @@ use image::{
 };
 use resvg::{tiny_skia, usvg};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::Cursor,
     path::{Path, PathBuf},
@@ -20,6 +20,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct Renderer {
     template_dir: PathBuf,
+    default_template_dir: Option<PathBuf>,
     output_dir: PathBuf,
     asset_roots: Vec<PathBuf>,
     font_dir: Option<PathBuf>,
@@ -31,12 +32,17 @@ impl Renderer {
             std::env::var("COVERFORGE_TEMPLATE_DIR").unwrap_or_else(|_| "./templates".into());
         let output_dir =
             std::env::var("COVERFORGE_OUTPUT_DIR").unwrap_or_else(|_| "./output".into());
+        let default_template_dir = std::env::var("COVERFORGE_DEFAULT_TEMPLATE_DIR")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|path| path.is_dir());
         let roots =
             std::env::var("COVERFORGE_ASSET_ROOTS").unwrap_or_else(|_| "./examples/assets".into());
         let font_dir = std::env::var("COVERFORGE_FONT_DIR").ok().map(PathBuf::from);
         fs::create_dir_all(&output_dir)?;
         Ok(Self {
             template_dir: PathBuf::from(template_dir),
+            default_template_dir,
             output_dir: PathBuf::from(output_dir),
             asset_roots: roots
                 .split(';')
@@ -52,20 +58,24 @@ impl Renderer {
     }
 
     pub fn list_templates(&self) -> Result<Vec<String>> {
-        let mut out = Vec::new();
-        if !self.template_dir.exists() {
-            return Ok(out);
-        }
-        for entry in fs::read_dir(&self.template_dir)? {
-            let p = entry?.path();
-            if p.extension().and_then(|x| x.to_str()) == Some("json")
-                && let Some(stem) = p.file_stem().and_then(|x| x.to_str())
-            {
-                out.push(stem.to_string());
+        let mut ids = BTreeSet::new();
+        for dir in std::iter::once(Some(&self.template_dir))
+            .chain(std::iter::once(self.default_template_dir.as_ref()))
+            .flatten()
+        {
+            if !dir.exists() {
+                continue;
+            }
+            for entry in fs::read_dir(dir)? {
+                let p = entry?.path();
+                if p.extension().and_then(|x| x.to_str()) == Some("json")
+                    && let Some(stem) = p.file_stem().and_then(|x| x.to_str())
+                {
+                    ids.insert(stem.to_string());
+                }
             }
         }
-        out.sort();
-        Ok(out)
+        Ok(ids.into_iter().collect())
     }
 
     pub fn save_template(&self, id: &str, template: &Template) -> Result<()> {
@@ -95,8 +105,20 @@ impl Renderer {
         {
             return Err(anyhow!("invalid template id"));
         }
-        let p = self.template_dir.join(format!("{id}.json"));
-        let raw = fs::read_to_string(&p).with_context(|| format!("template not found: {id}"))?;
+        let user_path = self.template_dir.join(format!("{id}.json"));
+        let path = if user_path.exists() {
+            user_path
+        } else if let Some(default_dir) = &self.default_template_dir {
+            let fallback = default_dir.join(format!("{id}.json"));
+            if fallback.exists() {
+                fallback
+            } else {
+                return Err(anyhow!("template not found: {id}"));
+            }
+        } else {
+            return Err(anyhow!("template not found: {id}"));
+        };
+        let raw = fs::read_to_string(&path).with_context(|| format!("template not found: {id}"))?;
         let t: Template = serde_json::from_str(&raw)?;
         Ok(t)
     }
@@ -710,6 +732,68 @@ mod tests {
     }
 
     #[test]
+    fn default_template_fallback_and_user_precedence() -> anyhow::Result<()> {
+        let base =
+            std::env::temp_dir().join(format!("coverforge-templates-{}", uuid::Uuid::new_v4()));
+        let user = base.join("user");
+        let defaults = base.join("defaults");
+        let output = base.join("output");
+        std::fs::create_dir_all(&user)?;
+        std::fs::create_dir_all(&defaults)?;
+        std::fs::create_dir_all(&output)?;
+        let template = |id: &str, display_name: &str| Template {
+            version: 1,
+            id: id.into(),
+            canvas: Canvas {
+                width: 10,
+                height: 10,
+                background: "#000000".into(),
+            },
+            variants: BTreeMap::new(),
+            layers: Vec::new(),
+            brand: crate::model::BrandStyle {
+                display_name: display_name.into(),
+                ..Default::default()
+            },
+            formats: BTreeMap::new(),
+        };
+        std::fs::write(
+            defaults.join("starter-brand.json"),
+            serde_json::to_vec(&template("starter-brand", "default"))?,
+        )?;
+        std::fs::write(
+            defaults.join("shared.json"),
+            serde_json::to_vec(&template("shared", "default"))?,
+        )?;
+        std::fs::write(
+            user.join("shared.json"),
+            serde_json::to_vec(&template("shared", "user"))?,
+        )?;
+
+        let renderer = Renderer {
+            template_dir: user.clone(),
+            default_template_dir: Some(defaults.clone()),
+            output_dir: output,
+            asset_roots: vec![base.clone()],
+            font_dir: None,
+        };
+        assert_eq!(
+            renderer.list_templates()?,
+            vec!["shared".to_string(), "starter-brand".to_string()]
+        );
+        assert_eq!(
+            renderer.load_template("starter-brand")?.brand.display_name,
+            "default"
+        );
+        assert_eq!(renderer.load_template("shared")?.brand.display_name, "user");
+        renderer.save_template("saved", &template("saved", "saved"))?;
+        assert!(user.join("saved.json").exists());
+        assert!(!defaults.join("saved.json").exists());
+        std::fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
     fn output_dir_is_safe_asset_root() -> anyhow::Result<()> {
         let base = std::env::temp_dir().join(format!("coverforge-root-{}", uuid::Uuid::new_v4()));
         let templates = base.join("templates");
@@ -720,6 +804,7 @@ mod tests {
         std::fs::write(&asset, b"asset")?;
         let renderer = Renderer {
             template_dir: templates,
+            default_template_dir: None,
             output_dir: output.clone(),
             asset_roots: Vec::new(),
             font_dir: None,
@@ -745,6 +830,7 @@ mod tests {
         let asset = store.save_upload("logo.svg", Some("image/svg+xml"), svg)?;
         let renderer = Renderer {
             template_dir: templates,
+            default_template_dir: None,
             output_dir: output,
             asset_roots: vec![base.clone()],
             font_dir: None,
