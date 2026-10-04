@@ -46,10 +46,10 @@ impl AssetStore {
         let safe = safe_upload_filename(filename)?;
         let extension = validate_extension(&safe)?;
         let id = uuid::Uuid::new_v4().simple().to_string();
-        let stored_name = format!("{id}-{safe}");
-        let path = self.root.join(&stored_name);
 
         if extension == "svg" {
+            let stored_name = format!("{id}-{safe}");
+            let path = self.root.join(&stored_name);
             let (width, height) = validate_svg_logo(bytes)?;
             fs::write(&path, bytes)?;
             return Ok(UploadedAsset {
@@ -68,6 +68,18 @@ impl AssetStore {
         let decoded = decode_raster_bytes_safely(bytes, format)?;
         use image::GenericImageView;
         let (width, height) = decoded.dimensions();
+        let stem = Path::new(&safe)
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| anyhow!("invalid asset filename"))?;
+        let canonical_extension = match format {
+            ImageFormat::Png => "png",
+            ImageFormat::Jpeg => "jpg",
+            ImageFormat::WebP => "webp",
+            _ => return Err(anyhow!("unsupported raster format")),
+        };
+        let stored_name = format!("{id}-{stem}.{canonical_extension}");
+        let path = self.root.join(&stored_name);
         fs::write(&path, bytes)?;
 
         Ok(UploadedAsset {
@@ -84,6 +96,10 @@ impl AssetStore {
 }
 
 pub fn load_raster_safely(path: &Path) -> Result<DynamicImage> {
+    let metadata = fs::metadata(path)?;
+    if metadata.len() > MAX_UPLOAD_BYTES as u64 {
+        return Err(anyhow!("asset exceeds upload byte limit"));
+    }
     let bytes = fs::read(path)?;
     let (format, _) = sniff_raster_format(&bytes)?;
     decode_raster_bytes_safely(&bytes, format)
@@ -166,8 +182,14 @@ pub(crate) fn validate_svg_logo(bytes: &[u8]) -> Result<(u32, u32)> {
         return Err(anyhow!("unsafe SVG reference or event handler"));
     }
 
-    let root_end = lower.find('>').ok_or_else(|| anyhow!("invalid SVG root"))?;
-    let root = &lower[..=root_end];
+    let root_start = lower
+        .find("<svg")
+        .ok_or_else(|| anyhow!("invalid SVG root"))?;
+    let root_tail = &lower[root_start..];
+    let root_end = root_tail
+        .find('>')
+        .ok_or_else(|| anyhow!("invalid SVG root"))?;
+    let root = &root_tail[..=root_end];
     let has_view_box = root.contains("viewbox=");
     let has_dimensions = root.contains("width=") && root.contains("height=");
     if !has_view_box && !has_dimensions {
@@ -375,12 +397,49 @@ mod tests {
     }
 
     #[test]
+    fn rejects_oversized_local_raster_before_read() -> anyhow::Result<()> {
+        let base = std::env::temp_dir().join(format!("coverforge-assets-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&base)?;
+        let path = base.join("oversized.png");
+        let file = std::fs::File::create(&path)?;
+        file.set_len(MAX_UPLOAD_BYTES as u64 + 1)?;
+        let err = load_raster_safely(&path).unwrap_err();
+        assert!(err.to_string().contains("byte limit"), "{err}");
+        std::fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn stored_raster_extension_matches_sniffed_format() -> anyhow::Result<()> {
+        let base = std::env::temp_dir().join(format!("coverforge-assets-{}", uuid::Uuid::new_v4()));
+        let store = AssetStore::new(&base)?;
+        let image = image::DynamicImage::new_rgb8(3, 2);
+        let mut bytes = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new(&mut bytes).encode_image(&image)?;
+        let asset = store.save_upload("misnamed.png", Some("image/png"), &bytes)?;
+        assert!(asset.filename.ends_with(".jpg"), "{}", asset.filename);
+        assert_eq!(asset.mime, "image/jpeg");
+        std::fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
     fn normalizes_exif_orientation() -> anyhow::Result<()> {
         use image::GenericImageView;
         let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/orientation-6.jpg");
         let image = load_raster_safely(&fixture)?;
         assert_eq!(image.dimensions(), (3, 2));
+        Ok(())
+    }
+
+    #[test]
+    fn accepts_svg_with_xml_prologue() -> anyhow::Result<()> {
+        let svg = r##"<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 16">
+  <rect width="32" height="16" fill="#FF7A00"/>
+</svg>"##;
+        assert_eq!(validate_svg_logo(svg.as_bytes())?, (32, 16));
         Ok(())
     }
 
