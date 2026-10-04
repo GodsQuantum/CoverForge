@@ -1099,8 +1099,10 @@
         </header>
         <textarea class="textarea mono json-editor" bind:value={templateJson} spellcheck="false" oninput={() => dirty=true}></textarea>
         <div class="json-help">
+          <code>GET /openapi.json</code>
           <code>GET /v1/templates/{'{show}'}</code>
           <code>PUT /v1/templates/{'{show}'}</code>
+          <code>GET /v1/templates/{'{show}'}/dataset</code>
           <code>POST /v1/render</code>
           <code>POST /v1/render/preview</code>
           <code>POST /v1/render/batch</code>
