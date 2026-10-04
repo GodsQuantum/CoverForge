@@ -3,12 +3,12 @@ mod render;
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Multipart, Path, State},
-    http::StatusCode,
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::IntoResponse,
     routing::{get, post},
 };
-use model::{LegacyGenerateRequest, RenderRequest, Template};
+use model::{InlineRenderRequest, LegacyGenerateRequest, RenderRequest, Template};
 use render::Renderer;
 use serde_json::{Value, json};
 use std::{
@@ -51,7 +51,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/templates/{id}", get(get_template).put(put_template))
         .route("/v1/fonts", get(list_fonts).post(upload_font))
         .route("/v1/fonts/{name}", axum::routing::delete(delete_font))
+        .route("/v1/asset", get(get_asset))
         .route("/v1/render", post(render))
+        .route("/v1/render/preview", post(render_preview))
         .route("/v1/render/batch", post(render_batch))
         .route("/api/generate", post(legacy_generate))
         .nest_service("/outputs", ServeDir::new(output_dir))
@@ -103,6 +105,27 @@ async fn put_template(
 
 async fn list_fonts(State(s): State<AppState>) -> Result<Json<Value>, ApiError> {
     Ok(Json(json!({ "fonts": font_catalog(&s.font_dir)? })))
+}
+
+#[derive(serde::Deserialize)]
+struct AssetQuery {
+    path: String,
+}
+
+async fn get_asset(
+    State(s): State<AppState>,
+    Query(query): Query<AssetQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    let path = s.renderer.resolve_asset_path(&query.path)?;
+    let bytes = tokio::fs::read(&path).await?;
+    let mime = mime_guess::from_path(&path).first_or_octet_stream();
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_str(mime.as_ref())?);
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, max-age=300"),
+    );
+    Ok((headers, bytes))
 }
 
 async fn upload_font(
@@ -176,6 +199,13 @@ async fn render(
     Ok(Json(serde_json::to_value(s.renderer.render(&req)?)?))
 }
 
+async fn render_preview(
+    State(s): State<AppState>,
+    Json(req): Json<InlineRenderRequest>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(serde_json::to_value(s.renderer.render_inline(&req)?)?))
+}
+
 async fn render_batch(
     State(s): State<AppState>,
     Json(reqs): Json<Vec<RenderRequest>>,
@@ -243,10 +273,10 @@ fn legacy_template_parts(value: &str) -> anyhow::Result<(String, String)> {
         ("-ig", "feed"),
         ("-yt", "youtube"),
     ] {
-        if let Some(show) = slug.strip_suffix(suffix) {
-            if !show.is_empty() {
-                return Ok((show.to_string(), format.to_string()));
-            }
+        if let Some(show) = slug.strip_suffix(suffix)
+            && !show.is_empty()
+        {
+            return Ok((show.to_string(), format.to_string()));
         }
     }
     Err(anyhow::anyhow!("unknown legacy template name: {value}"))

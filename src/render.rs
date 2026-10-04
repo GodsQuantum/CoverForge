@@ -1,4 +1,7 @@
-use crate::model::{Canvas, Frame, Layer, RenderRequest, RenderResponse, RenderedAsset, Template};
+use crate::model::{
+    Canvas, Frame, InlineRenderRequest, Layer, RenderRequest, RenderResponse, RenderedAsset,
+    Template,
+};
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use image::{
@@ -54,10 +57,10 @@ impl Renderer {
         }
         for entry in fs::read_dir(&self.template_dir)? {
             let p = entry?.path();
-            if p.extension().and_then(|x| x.to_str()) == Some("json") {
-                if let Some(stem) = p.file_stem().and_then(|x| x.to_str()) {
-                    out.push(stem.to_string());
-                }
+            if p.extension().and_then(|x| x.to_str()) == Some("json")
+                && let Some(stem) = p.file_stem().and_then(|x| x.to_str())
+            {
+                out.push(stem.to_string());
             }
         }
         out.sort();
@@ -138,7 +141,34 @@ impl Renderer {
 
     pub fn render(&self, req: &RenderRequest) -> Result<RenderResponse> {
         let template = self.load_template(&req.template)?;
-        let variants = if req.variants.is_empty() {
+        self.render_template(
+            &template,
+            &req.variables,
+            &req.variants,
+            req.output_stem.as_deref(),
+        )
+    }
+
+    pub fn render_inline(&self, req: &InlineRenderRequest) -> Result<RenderResponse> {
+        self.render_template(
+            &req.template,
+            &req.variables,
+            &req.variants,
+            req.output_stem.as_deref(),
+        )
+    }
+
+    fn render_template(
+        &self,
+        template: &Template,
+        variables: &BTreeMap<String, String>,
+        requested_variants: &[String],
+        output_stem: Option<&str>,
+    ) -> Result<RenderResponse> {
+        if !valid_template_id(&template.id) {
+            return Err(anyhow!("invalid template id"));
+        }
+        let variants = if requested_variants.is_empty() {
             if !template.formats.is_empty() {
                 template.formats.keys().cloned().collect()
             } else if template.variants.is_empty() {
@@ -147,19 +177,17 @@ impl Renderer {
                 template.variants.keys().cloned().collect()
             }
         } else {
-            req.variants.clone()
+            requested_variants.to_vec()
         };
 
-        let stem = req
-            .output_stem
-            .as_deref()
+        let stem = output_stem
             .map(safe_name)
             .unwrap_or_else(|| format!("{}-{}", safe_name(&template.id), Uuid::new_v4().simple()));
         let mut assets = Vec::new();
 
         for variant in variants {
-            let (canvas, layers) = resolve_format(&template, &variant)?;
-            let svg = self.compose_svg(canvas, layers, &req.variables)?;
+            let (canvas, layers) = resolve_format(template, &variant)?;
+            let svg = self.compose_svg(canvas, layers, variables)?;
             let filename = format!("{stem}-{}.png", safe_name(&variant));
             let path = self.output_dir.join(&filename);
             self.rasterize(&svg, canvas, &path)?;
@@ -174,7 +202,7 @@ impl Renderer {
         }
         Ok(RenderResponse {
             ok: true,
-            template: template.id,
+            template: template.id.clone(),
             assets,
         })
     }
@@ -191,6 +219,9 @@ impl Renderer {
             xml(&canvas.background)
         ));
         for layer in layers {
+            if !layer.visible() {
+                continue;
+            }
             match layer {
                 Layer::Rect {
                     frame,
@@ -216,7 +247,7 @@ impl Renderer {
                     if resolved.is_empty() {
                         continue;
                     }
-                    let path = self.resolve_asset(&resolved)?;
+                    let path = self.resolve_asset_path(&resolved)?;
                     let (x, y, w, h) = px(*frame, canvas);
                     let data = self.prepared_image(
                         &path,
@@ -234,6 +265,8 @@ impl Renderer {
                     font_family,
                     font_weight,
                     font_size,
+                    auto_fit,
+                    min_font_size,
                     color,
                     stroke_color,
                     stroke_width,
@@ -242,6 +275,7 @@ impl Renderer {
                     line_height,
                     uppercase,
                     rotation_deg,
+                    opacity,
                     ..
                 } => {
                     let mut value = substitute(text, vars);
@@ -252,8 +286,16 @@ impl Renderer {
                         continue;
                     }
                     let (x, y, w, h) = px(*frame, canvas);
-                    let size = font_size * canvas.height as f32;
-                    let lines = wrap_text(&value, w, size, max_lines.unwrap_or(6));
+                    let max_size = font_size * canvas.height as f32;
+                    let min_size = min_font_size.unwrap_or((font_size * 0.35).max(0.008))
+                        * canvas.height as f32;
+                    let line_cap = max_lines.unwrap_or(6).max(1);
+                    let size = if *auto_fit {
+                        fit_text_size(&value, w, h, min_size, max_size, line_cap, *line_height)
+                    } else {
+                        max_size
+                    };
+                    let lines = wrap_text(&value, w, size, line_cap);
                     let anchor = match align.as_str() {
                         "center" => "middle",
                         "right" => "end",
@@ -283,7 +325,7 @@ impl Renderer {
                     } else {
                         String::new()
                     };
-                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" font-family="{}" font-weight="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), xml(font_family), font_weight));
+                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" opacity="{}" font-family="{}" font-weight="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), clamp(*opacity), xml(font_family), font_weight));
                     for (i, line) in lines.iter().enumerate() {
                         let dy = if i == 0 { 0.0 } else { size * line_height };
                         body.push_str(&format!(
@@ -301,7 +343,7 @@ impl Renderer {
         ))
     }
 
-    fn resolve_asset(&self, raw: &str) -> Result<PathBuf> {
+    pub fn resolve_asset_path(&self, raw: &str) -> Result<PathBuf> {
         // n8n sees the Cloud9 storage bind under /host, while CoverForge runs
         // directly in CT400 where the same tree is mounted at /srv/storage.
         let translated = raw
@@ -442,11 +484,15 @@ fn xml(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
-fn wrap_text(s: &str, width: f32, size: f32, max_lines: usize) -> Vec<String> {
+fn wrapped_lines(s: &str, width: f32, size: f32) -> Vec<String> {
     let avg = (size * 0.54).max(1.0);
     let max_chars = (width / avg).floor().max(4.0) as usize;
     let mut lines = Vec::new();
     for explicit in s.lines() {
+        if explicit.trim().is_empty() {
+            lines.push(String::new());
+            continue;
+        }
         let mut cur = String::new();
         for word in explicit.split_whitespace() {
             let next = if cur.is_empty() {
@@ -460,18 +506,56 @@ fn wrap_text(s: &str, width: f32, size: f32, max_lines: usize) -> Vec<String> {
             } else {
                 cur = next;
             }
-            if lines.len() >= max_lines {
-                break;
-            }
         }
-        if !cur.is_empty() && lines.len() < max_lines {
+        if !cur.is_empty() {
             lines.push(cur);
         }
-        if lines.len() >= max_lines {
-            break;
-        }
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
     }
     lines
+}
+
+fn wrap_text(s: &str, width: f32, size: f32, max_lines: usize) -> Vec<String> {
+    let mut lines = wrapped_lines(s, width, size);
+    lines.truncate(max_lines.max(1));
+    lines
+}
+
+fn fit_text_size(
+    s: &str,
+    width: f32,
+    height: f32,
+    min_size: f32,
+    max_size: f32,
+    max_lines: usize,
+    line_height: f32,
+) -> f32 {
+    let min_size = min_size.max(1.0).min(max_size.max(1.0));
+    let max_size = max_size.max(min_size);
+    let fits = |size: f32| {
+        let lines = wrapped_lines(s, width, size);
+        lines.len() <= max_lines.max(1)
+            && size * line_height.max(0.1) * lines.len() as f32 <= height.max(1.0)
+    };
+    if fits(max_size) {
+        return max_size;
+    }
+    if !fits(min_size) {
+        return min_size;
+    }
+    let mut low = min_size;
+    let mut high = max_size;
+    for _ in 0..18 {
+        let mid = (low + high) / 2.0;
+        if fits(mid) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    low
 }
 
 fn valid_template_id(id: &str) -> bool {
@@ -567,5 +651,20 @@ mod tests {
         let img = DynamicImage::new_rgb8(640, 480);
         let out = crop_cover(img, 320, 180, 0.5, 0.5);
         assert_eq!(out.dimensions(), (320, 180));
+    }
+
+    #[test]
+    fn auto_fit_shrinks_long_text_to_the_box() {
+        let fitted = fit_text_size(
+            "THIS IS A DELIBERATELY LONG TITLE THAT MUST SHRINK TO FIT",
+            420.0,
+            150.0,
+            18.0,
+            110.0,
+            3,
+            0.95,
+        );
+        assert!(fitted < 110.0);
+        assert!(fitted >= 18.0);
     }
 }

@@ -16,19 +16,20 @@ Image models are good at scenes and bad at repeated typography, logos and exact 
 
 No fake `16:9 → blurred background → inset image` conversion.
 
-## What ships in v0.3
+## What ships in v0.4
 
-- ⚡ Rust 2024 + Axum + resvg/tiny-skia
-- 🧩 one JSON show-style containing every layout
-- 🖥️ Svelte 5 editor with live previews
-- 🔤 large redistributable font pack
-- ⬆️ custom font upload from the UI
-- 📁 custom font folder-drop support
-- 🐳 Docker Compose deployment
-- 🔌 API-first, with a compatibility endpoint for existing automation
-- 🎯 normalized 0–1 coordinates
-- 🧱 image / rectangle / text layers
+- ⚡ Rust 2024 + Axum + resvg/tiny-skia production renderer
+- 🧩 one JSON show-style containing every independent format layout
+- 🎨 Svelte 5 + Fabric.js 7 visual studio with drag / resize / rotate
+- 🧱 named image / rectangle / text layers with visibility, locking, reorder, duplicate and delete
+- ✍️ text boxes with max size, minimum size and automatic fit-to-box
+- 🧪 instant browser canvas plus exact unsaved Rust preview
+- ↶ undo / redo, zoom, grid and safe-area overlays
+- 🔤 searchable font library + custom font upload/folder-drop
+- 🔌 API-first JSON model, batch render and legacy automation adapter
+- 🎯 normalized 0–1 coordinates for portable layouts
 - 💾 atomic template saves
+- 🐳 Docker Compose deployment
 
 ## Native social formats
 
@@ -105,7 +106,9 @@ PUT    /v1/templates/{show}
 GET    /v1/fonts
 POST   /v1/fonts
 DELETE /v1/fonts/{filename}
+GET    /v1/asset?path=...
 POST   /v1/render
+POST   /v1/render/preview
 POST   /v1/render/batch
 POST   /api/generate
 ```
