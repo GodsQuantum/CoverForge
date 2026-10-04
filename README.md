@@ -20,7 +20,7 @@ No fake `16:9 → blurred background → inset image` conversion.
 
 - ⚡ Rust 2024 + Axum + resvg/tiny-skia production renderer
 - 🧩 one JSON show-style containing every independent format layout
-- 🎨 Svelte 5 + Fabric.js 7 visual studio with drag / resize / rotate
+- 🎨 Svelte 5 / SvelteKit 3 + Fabric.js 7 visual studio with drag / resize / rotate
 - 🧱 named image / rectangle / text layers with visibility, locking, reorder, duplicate and delete
 - ✍️ text boxes with max size, minimum size and automatic fit-to-box
 - 🧪 instant browser canvas plus exact unsaved Rust preview
