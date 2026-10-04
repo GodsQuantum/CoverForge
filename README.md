@@ -1,168 +1,138 @@
+<p align="center">
+  <img src="brand/coverforge-logo.svg" alt="CoverForge" width="520">
+</p>
+
 # CoverForge
 
-**AI makes the key art. CoverForge makes it publishable.**
-
-Deterministic Rust compositor + editable show styles for podcast thumbnails and social covers.
+**One image, every format. API-first branding automation, self-hosted.**
 
 [Français](README.fr.md) · [简体中文](README.zh-CN.md)
 
-## Why
+CoverForge turns one source image plus a brand identity into consistent assets for multiple platforms. It combines a browser studio, reusable JSON templates, deterministic Rust rendering, Smart Reframe and batch ZIP export.
 
-Image models are good at scenes and bad at repeated typography, logos and exact branding. CoverForge keeps those jobs separate:
-
-1. generate **native key art for the target ratio**;
-2. apply exact typography / logo / palette with a deterministic renderer;
-3. edit the entire visual identity of a show from **one JSON file**.
-
-No fake `16:9 → blurred background → inset image` conversion.
-
-## What ships in v0.4
-
-- ⚡ Rust 2024 + Axum + resvg/tiny-skia production renderer
-- 🧩 one JSON show-style containing every independent format layout
-- 🎨 Svelte 5 / SvelteKit 3 + Fabric.js 7 visual studio with drag / resize / rotate
-- 📐 browser-fit canvas plus percentage sliders with exact numeric X/Y/W/H values
-- 🧱 named image / rectangle / text layers with visibility, locking, reorder, duplicate and delete
-- 🔤 font-family + real face/variant selection (weight and italic carried to Fabric and Rust/resvg)
-- ✍️ text boxes with max size, minimum size and automatic fit-to-box
-- 🧪 instant browser canvas plus exact unsaved Rust preview
-- ↶ undo / redo, zoom, grid and safe-area overlays
-- 🔤 searchable font library + custom font upload/folder-drop
-- 🔌 API-first JSON model, batch render and legacy automation adapter
-- 🎯 normalized 0–1 coordinates for portable layouts
-- 💾 atomic template saves
-- 🐳 Docker Compose deployment
-
-## Native social formats
-
-A show style can hold all production outputs in the same file:
-
-| Key | Output |
-|---|---:|
-| `youtube` | 3840×2160 |
-| `square` | 1200×1200 |
-| `feed` | 1080×1350 |
-| `vertical` | 2160×3840 |
-| `acast` | 3000×3000 |
-
-A recommended automation pipeline is:
+![CoverForge workflow](docs/assets/coverforge-workflow.svg)
 
 ```text
-transcript/editorial direction
-        ↓
-16:9 key art ──→ YouTube layout
-1:1 key art  ──→ Square + Acast layouts
-4:5 key art  ──→ Feed layout
-9:16 key art ──→ Vertical layout
+Image → Smart crop → Brand kit → Dynamic layers → Multi-format → ZIP / API
 ```
 
-CoverForge only crops when you explicitly ask a layer to use `fit: cover`; it does not invent blurred letterboxing.
+## What CoverForge does
 
-## One file per show
+- import JPEG, PNG, WebP and safe SVG logos;
+- automatically reframe one raster image for multiple aspect ratios;
+- apply logos, palette, fonts, titles, subtitles and badges;
+- edit each format independently with Fabric.js;
+- render the final result with Rust + resvg/tiny-skia;
+- export selected outputs individually or as a ZIP with `manifest.json`;
+- expose the same workflow through a JSON/OpenAPI API;
+- keep existing legacy AutoPublisher calls working.
 
-Example production tree:
+The generic built-in `starter-brand` template includes:
 
-```text
-Templates/
-├── cf.json
-├── dpafm.json
-├── lcfp.json
-└── my-new-show.json
+| Format | Size |
+| --- | ---: |
+| YouTube / 16:9 | 1920×1080 |
+| Square / 1:1 | 1080×1080 |
+| Feed / 4:5 | 1080×1350 |
+| Vertical / 9:16 | 1080×1920 |
+| Landscape / 1.91:1 | 1200×628 |
+
+## Product model
+
+CoverForge keeps three responsibilities separate:
+
+1. **Source asset** — the image you want to publish.
+2. **Brand template** — deterministic layout, typography, logos, palette and variables.
+3. **Output package** — one or many rendered formats.
+
+The canonical design document is JSON. Fabric.js is only the interactive editing surface; Rust/resvg remains the production renderer.
+
+## Quick start
+
+Build and run locally:
+
+```bash
+docker build -t coverforge .
+docker run --rm -p 3099:3099 \
+  -e COVERFORGE_BIND=0.0.0.0:3099 \
+  -e COVERFORGE_DEFAULT_TEMPLATE_DIR=/app/default-templates \
+  coverforge
 ```
 
-Each show JSON contains:
+Then open `http://localhost:3099`.
 
-- `brand.display_name`
-- `brand.visual_summary`
-- `brand.palette`
-- `brand.fonts`
-- `brand.notes`
-- `formats.youtube`
-- `formats.square`
-- `formats.feed`
-- `formats.vertical`
-- `formats.acast`
-
-See [docs/SHOW_STYLES.md](docs/SHOW_STYLES.md).
-
-## Fonts
-
-CoverForge ships with a broad libre font set and exposes a searchable font browser.
-
-Custom fonts can be added either:
-
-- from the UI;
-- by dropping `.ttf`, `.otf`, `.ttc` or `.otc` files into the persistent Custom folder.
-
-The public repo does **not** contain private/commercial font binaries.
-
-See [docs/FONTS.md](docs/FONTS.md).
+The included `compose.yaml` is intentionally tailored to the existing Cloud9 deployment. Adapt its bind mounts before using it on another host.
 
 ## API
+
+Core routes:
 
 ```text
 GET    /health
 GET    /openapi.json
+
 GET    /v1/templates
-GET    /v1/templates/{show}
-PUT    /v1/templates/{show}
-GET    /v1/templates/{show}/dataset
+GET    /v1/templates/{id}
+PUT    /v1/templates/{id}
+GET    /v1/templates/{id}/dataset
+
 GET    /v1/fonts
 POST   /v1/fonts
-DELETE /v1/fonts/{filename}
+DELETE /v1/fonts/{name}
+
 GET    /v1/asset?path=...
+POST   /v1/assets
+POST   /v1/reframe
+
 POST   /v1/render
 POST   /v1/render/preview
 POST   /v1/render/batch
+POST   /v1/render/package
+
 POST   /api/generate
 ```
 
-### Render one format
+Full examples: [docs/API.md](docs/API.md).
 
-```json
-{
-  "template": "dpafm",
-  "variables": {
-    "title": "LE STAND-UP EST MORT",
-    "eyebrow": "DPAFM #48",
-    "background": "/srv/storage/path/native-16x9.png",
-    "logo": "/srv/storage/path/DPAFM.png"
-  },
-  "variants": ["youtube"]
-}
-```
+## Security
 
-### Legacy automation adapter
+CoverForge is designed for self-hosted use.
 
-Existing calls such as `DPAFM - YT` still work. They are resolved to show `dpafm`, format `youtube`.
+- uploaded rasters are format-sniffed and dimension-limited;
+- SVG logos reject scripts, event handlers and external references;
+- file access is restricted to configured safe roots;
+- uploaded assets become immediately usable without widening arbitrary filesystem access;
+- Smart Reframe is local and deterministic;
+- ZIP entry names are sanitized to prevent traversal;
+- private fonts and production assets stay outside the public repository.
 
-## Docker
+Before exposing an instance publicly, add authentication/reverse-proxy access controls appropriate to your deployment.
 
-```sh
-docker compose up -d --build
-curl -fsS http://127.0.0.1:3099/health
-```
+## Compatibility
 
-The provided Compose file is intentionally Cloud9-flavoured; change the bind mounts for another machine.
+Existing production templates and the legacy `POST /api/generate` adapter remain supported. Podcast/show workflows are one use case of the generic branding engine, not the product identity.
 
 ## Development
 
-```sh
+```bash
+cargo fmt --check
 cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
 
 cd web
 npm ci
 npm run check
+npm test
 npm run build
 ```
 
-## No-BS rules
+## Documentation
 
-- key art should be generated for the **actual target ratio**;
-- typography belongs to the compositor, not the image model;
-- one show = one style file;
-- private fonts and production assets stay outside Git;
-- a template edit must not require an app rebuild.
+- [Guide français](README.fr.md)
+- [简体中文说明](README.zh-CN.md)
+- [Template model](docs/SHOW_STYLES.md)
+- [API reference and examples](docs/API.md)
+- `GET /openapi.json` on a running instance
 
 ## License
 

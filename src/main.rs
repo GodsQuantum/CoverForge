@@ -103,12 +103,16 @@ async fn health() -> Json<Value> {
 }
 
 async fn openapi() -> Json<Value> {
-    Json(json!({
+    Json(openapi_document())
+}
+
+fn openapi_document() -> Value {
+    json!({
         "openapi": "3.1.0",
         "info": {
             "title": "CoverForge API",
             "version": env!("CARGO_PKG_VERSION"),
-            "description": "API-first visual cover editor and deterministic Rust renderer"
+            "description": "API-first branding automation studio with deterministic Rust rendering"
         },
         "paths": {
             "/health": {
@@ -153,6 +157,25 @@ async fn openapi() -> Json<Value> {
                     "summary": "Preview an asset inside configured safe roots",
                     "parameters": [{ "name": "path", "in": "query", "required": true, "schema": { "type": "string" } }],
                     "responses": { "200": { "description": "Asset bytes" } }
+                }
+            },
+            "/v1/assets": {
+                "post": {
+                    "summary": "Upload a validated branding asset",
+                    "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["asset"], "properties": { "asset": { "type": "string", "format": "binary" } } } } } },
+                    "responses": { "200": { "description": "Uploaded asset metadata" } }
+                }
+            },
+            "/v1/reframe": {
+                "post": {
+                    "summary": "Compute deterministic smart crops for target formats",
+                    "responses": { "200": { "description": "Normalized crop and focal point results" } }
+                }
+            },
+            "/v1/render/package": {
+                "post": {
+                    "summary": "Render selected formats and create a ZIP package with manifest",
+                    "responses": { "200": { "description": "Rendered assets, ZIP URL and manifest" } }
                 }
             },
             "/v1/render": {
@@ -222,7 +245,7 @@ async fn openapi() -> Json<Value> {
                 }
             }
         }
-    }))
+    })
 }
 
 async fn list_templates(State(s): State<AppState>) -> Result<Json<Value>, ApiError> {
@@ -872,5 +895,50 @@ mod tests {
         assert_eq!(font_face_attributes("SemiBold"), (600, "normal"));
         assert_eq!(font_face_attributes("Bold Italic"), (700, "italic"));
         assert_eq!(font_face_attributes("Black"), (900, "normal"));
+    }
+
+    #[test]
+    fn openapi_documents_branding_v06_routes() {
+        let document = openapi_document();
+        let paths = document["paths"].as_object().expect("OpenAPI paths");
+        for path in ["/v1/assets", "/v1/reframe", "/v1/render/package"] {
+            assert!(paths.contains_key(path), "missing {path}");
+        }
+        let description = document["info"]["description"]
+            .as_str()
+            .expect("OpenAPI description")
+            .to_ascii_lowercase();
+        assert!(description.contains("branding"));
+        assert!(!description.contains("podcast"));
+    }
+
+    #[test]
+    fn legacy_generate_request_json_is_backward_compatible() {
+        let raw = r#"{
+          "template_name":"DPAFM - YT",
+          "output_filename":"episode-48.png",
+          "bg_image":"/srv/storage/background.jpg",
+          "fields":{"title":"LE STAND-UP EST MORT","PodLogo":"/srv/storage/logo.png"}
+        }"#;
+        let request: LegacyGenerateRequest = serde_json::from_str(raw).expect("legacy request");
+        assert_eq!(request.template_name, "DPAFM - YT");
+        assert_eq!(request.output_filename, "episode-48.png");
+        assert_eq!(request.bg_image, "/srv/storage/background.jpg");
+        assert_eq!(request.fields["title"], "LE STAND-UP EST MORT");
+    }
+
+    #[test]
+    fn existing_render_request_json_is_backward_compatible() {
+        let raw = r#"{
+          "template":"dpafm",
+          "variables":{"title":"Hello","background":"/srv/storage/bg.jpg"},
+          "variants":["youtube"],
+          "output_stem":"demo"
+        }"#;
+        let request: RenderRequest = serde_json::from_str(raw).expect("render request");
+        assert_eq!(request.template, "dpafm");
+        assert_eq!(request.variants, vec!["youtube"]);
+        assert_eq!(request.variables["title"], "Hello");
+        assert_eq!(request.output_stem.as_deref(), Some("demo"));
     }
 }
