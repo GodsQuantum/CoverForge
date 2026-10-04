@@ -196,6 +196,13 @@
       map[fontKey(f)] = name;
       rules.push('@font-face{font-family:"' + name + '";src:url("' + f.url + '");font-weight:' + fontWeight(f) + ';font-style:' + fontStyle(f) + ';font-display:swap;}');
     });
+    for (const family of availableFontFamilies()) {
+      for (const face of fontFacesForFamily(family)) {
+        if (!face.url) continue;
+        const cssFamily = family.replaceAll('"','\\\"');
+        rules.push('@font-face{font-family:"' + cssFamily + '";src:url("' + face.url + '");font-weight:' + fontWeight(face) + ';font-style:' + fontStyle(face) + ';font-display:swap;}');
+      }
+    }
     style.textContent = rules.join('\n');
     document.head.appendChild(style);
     fontPreviewNames = map;
@@ -263,7 +270,19 @@
     return exact ? fontFaceKey(exact) : (faces[0] ? fontFaceKey(faces[0]) : '');
   }
 
-  function setFontFamily(family:string) {
+  async function loadLayerFont(layer:Layer) {
+    if (layer.type !== 'text' || typeof document === 'undefined' || !('fonts' in document)) return;
+    const family = String(layer.font_family || 'Inter').replaceAll('"','');
+    const style = String(layer.font_style || 'normal');
+    const weight = Number(layer.font_weight || 400);
+    try {
+      await document.fonts.load(style + ' ' + weight + ' 32px "' + family + '"');
+    } catch {
+      // Fabric will use the normal CSS fallback if a browser rejects a font face.
+    }
+  }
+
+  async function setFontFamily(family:string) {
     const layer = selectedLayer();
     if (!layer || layer.type !== 'text') return;
     layer.font_family = family;
@@ -273,17 +292,21 @@
       layer.font_weight = fontWeight(preferred);
       layer.font_style = fontStyle(preferred);
     }
-    markChanged();
+    markChanged(false);
+    await loadLayerFont(layer);
+    await rebuildCanvas();
   }
 
-  function setFontFace(key:string) {
+  async function setFontFace(key:string) {
     const layer = selectedLayer();
     if (!layer || layer.type !== 'text') return;
     const face = fontFacesForFamily(layer.font_family || '').find((f) => fontFaceKey(f) === key);
     if (!face) return;
     layer.font_weight = fontWeight(face);
     layer.font_style = fontStyle(face);
-    markChanged();
+    markChanged(false);
+    await loadLayerFont(layer);
+    await rebuildCanvas();
   }
 
   async function loadFonts() {
@@ -292,6 +315,10 @@
     if (!res.ok) throw new Error(data.error || 'Font catalog failed');
     fonts = Array.isArray(data.fonts) ? data.fonts : [];
     installFontPreviews();
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      await document.fonts.ready;
+    }
+    if (activeView === 'composer') await rebuildCanvas();
   }
 
   async function uploadFont(event:Event) {
@@ -1149,12 +1176,12 @@
                 <div class="grid two font-pickers">
                   <label class="mini-field">
                     <span>Famille</span>
-                    <input class="input" list="font-families" value={layer.font_family || ''} onchange={(e)=>setFontFamily((e.currentTarget as HTMLInputElement).value)} />
+                    <input class="input" list="font-families" value={layer.font_family || ''} onchange={(e)=>void setFontFamily((e.currentTarget as HTMLInputElement).value)} />
                     <datalist id="font-families">{#each availableFontFamilies() as family}<option value={family}></option>{/each}</datalist>
                   </label>
                   <label class="mini-field">
                     <span>Variante</span>
-                    <select value={currentFontFaceKey(layer)} onchange={(e)=>setFontFace((e.currentTarget as HTMLSelectElement).value)}>
+                    <select value={currentFontFaceKey(layer)} onchange={(e)=>void setFontFace((e.currentTarget as HTMLSelectElement).value)}>
                       {#each fontFacesForFamily(layer.font_family || '') as face}
                         <option value={fontFaceKey(face)}>{face.style || 'Regular'} · {fontWeight(face)}{fontStyle(face)==='italic'?' · italic':''}</option>
                       {/each}
