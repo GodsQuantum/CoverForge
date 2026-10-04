@@ -1,31 +1,17 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-
-  type View = 'composer' | 'fonts' | 'json';
-  type Frame = { x:number; y:number; width:number; height:number };
-  type CanvasDef = { width:number; height:number; background:string };
-  type Layer = {
-    type:'text'|'image'|'rect';
-    id:string;
-    name?:string;
-    visible?:boolean;
-    locked?:boolean;
-    frame:Frame;
-    [key:string]:any;
-  };
-  type FormatDef = { canvas:CanvasDef; layers:Layer[] };
-  type TemplateData = {
-    version:number;
-    id:string;
-    canvas:CanvasDef;
-    variants:Record<string,CanvasDef>;
-    layers:Layer[];
-    brand?:any;
-    formats:Record<string,FormatDef>;
-  };
-  type Asset = { variant:string; width:number; height:number; filename:string; url:string };
-  type RenderResponse = { ok:boolean; template:string; assets:Asset[]; error?:string };
-  type FontRecord = { family:string; style:string; weight?:number; font_style?:string; filename:string; source:string; url:string };
+  import { api } from '../lib/api';
+  import type {
+    CanvasDef,
+    FontRecord,
+    FormatDef,
+    Frame,
+    Layer,
+    RenderResponse,
+    RenderedAsset as Asset,
+    TemplateData,
+    View
+  } from '../lib/types';
 
   let activeView = $state<View>('composer');
   let templates = $state<string[]>([]);
@@ -310,10 +296,7 @@
   }
 
   async function loadFonts() {
-    const res = await fetch('/v1/fonts');
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Font catalog failed');
-    fonts = Array.isArray(data.fonts) ? data.fonts : [];
+    fonts = await api.listFonts();
     installFontPreviews();
     if (typeof document !== 'undefined' && 'fonts' in document) {
       await document.fonts.ready;
@@ -433,9 +416,7 @@
 
   async function loadTemplates() {
     try {
-      const res = await fetch('/v1/templates');
-      const data = await res.json();
-      templates = Array.isArray(data.templates) ? data.templates : [];
+      templates = await api.listTemplates();
       if (!template || !templates.includes(template)) template = templates[0] || '';
       if (template) await loadTemplate(template);
       await loadFonts();
@@ -447,9 +428,7 @@
   async function loadTemplate(id:string) {
     templateStatus = '';
     error = '';
-    const res = await fetch('/v1/templates/' + encodeURIComponent(id));
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Show style load failed');
+    const data = await api.getTemplate(id);
     templateData = normalizeTemplate(data);
     templateJson = JSON.stringify(templateData, null, 2);
     const keys = formatKeys();
@@ -485,13 +464,7 @@
     try {
       const parsed = normalizeTemplate(JSON.parse(templateJson));
       if (parsed.id !== template) throw new Error('Show style id must stay "' + template + '"');
-      const res = await fetch('/v1/templates/' + encodeURIComponent(template), {
-        method:'PUT',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify(parsed)
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Show style save failed');
+      await api.putTemplate(template, parsed);
       templateData = parsed;
       templateJson = JSON.stringify(parsed, null, 2);
       dirty = false;
@@ -528,13 +501,11 @@
     assets = [];
     rendering = true;
     try {
-      const res = await fetch('/v1/render/preview', {
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify({ template:templateData, variables, variants:[activeFormat] })
+      const data:RenderResponse = await api.renderPreview({
+        template:templateData,
+        variables,
+        variants:[activeFormat]
       });
-      const data:RenderResponse = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Render preview failed');
       assets = data.assets || [];
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
