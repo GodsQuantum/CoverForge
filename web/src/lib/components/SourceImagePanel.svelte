@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '../api';
-  import { tr, type Locale } from '../i18n';
+  import { tr, ui, type Locale } from '../i18n';
   import type { Point, UploadedAsset } from '../types';
 
   let {
@@ -30,7 +30,7 @@
   async function handleFile(file:File) {
     error = '';
     if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
-      error = 'JPEG, PNG ou WebP uniquement / 仅支持 JPEG、PNG 或 WebP';
+      error = ui(locale,'JPEG, PNG ou WebP uniquement','JPEG, PNG or WebP only','仅支持 JPEG、PNG 或 WebP');
       return;
     }
     uploading = true;
@@ -69,39 +69,30 @@
 
 <section class="source-panel panel">
   <div class="source-panel-head">
-    <div>
-      <span class="eyebrow">SOURCE / 原图</span>
-      <strong>{tr('fr','label.sourceImage')} / {tr('zh-CN','label.sourceImage')}</strong>
-    </div>
+    <div><span class="eyebrow">{ui(locale,'SOURCE','SOURCE','原图')}</span><strong>{tr(locale,'label.sourceImage')}</strong></div>
     {#if asset}<span class="asset-size">{asset.width}×{asset.height}</span>{/if}
   </div>
 
   <input bind:this={fileInput} class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onchange={choose} />
 
   {#if asset}
-    <button class="source-preview" onclick={setFocal} title="Déplacer le point focal / 调整焦点">
-      <img src={asset.url} alt="Source" />
+    <button class="source-preview" onclick={setFocal} title={ui(locale,'Déplacer le point focal','Move focal point','调整焦点')}>
+      <img src={asset.url} alt={ui(locale,'Source','Source','原图')} />
       <span class="focal-cross" style:left={(focal.x*100)+'%'} style:top={(focal.y*100)+'%'}></span>
-      <span class="source-hint">Clique pour déplacer le point focal / 点击调整焦点</span>
+      <span class="source-hint">{ui(locale,'Clique pour déplacer le point focal','Click to move the focal point','点击调整焦点')}</span>
     </button>
   {:else}
     <button class="source-dropzone" ondragover={(e)=>e.preventDefault()} ondrop={drop} onclick={() => fileInput?.click()}>
       <img src="/favicon.svg" alt="" />
-      <strong>{uploading ? 'Import… / 上传中…' : 'Glisser une image / 拖入图片'}</strong>
+      <strong>{uploading ? ui(locale,'Import…','Uploading…','上传中…') : ui(locale,'Glisser une image','Drop an image','拖入图片')}</strong>
       <span>JPEG · PNG · WebP</span>
     </button>
   {/if}
 
   <div class="source-actions">
-    <button class="btn compact" onclick={() => fileInput?.click()} disabled={uploading}>
-      {asset ? tr('fr','action.replaceImage') + ' / ' + tr('zh-CN','action.replaceImage') : tr('fr','action.import') + ' / ' + tr('zh-CN','action.import')}
-    </button>
-    <button class="btn compact primary" onclick={() => void onSmartReframe()} disabled={!asset || busy}>
-      {busy ? 'Analyse… / 分析中…' : tr('fr','action.smartCrop') + ' / ' + tr('zh-CN','action.smartCrop')}
-    </button>
-    <button class="btn compact" onclick={() => void onReset()} disabled={!asset || busy}>
-      Auto
-    </button>
+    <button class="btn compact" onclick={() => fileInput?.click()} disabled={uploading}>{asset ? tr(locale,'action.replaceImage') : tr(locale,'action.import')}</button>
+    <button class="btn compact primary" onclick={() => void onSmartReframe()} disabled={!asset || busy}>{busy ? ui(locale,'Analyse…','Analyzing…','分析中…') : tr(locale,'action.smartCrop')}</button>
+    <button class="btn compact" onclick={() => void onReset()} disabled={!asset || busy}>Auto</button>
   </div>
   {#if error}<div class="inline-error">{error}</div>{/if}
 </section>

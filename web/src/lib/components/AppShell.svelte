@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { tr, type Locale, type TranslationKey } from '../i18n';
+  import { tr, ui, type Locale, type TranslationKey } from '../i18n';
   import type { ProductView, View } from '../types';
 
   let {
@@ -31,37 +31,34 @@
   function active(view:ProductView) {
     return activeView === view || (view === 'project' && ['composer','fonts','json'].includes(activeView));
   }
-
-  function bilingual(key:TranslationKey) {
-    return tr('fr',key) + ' / ' + tr('zh-CN',key);
-  }
 </script>
 
 <div class="app-shell">
   <aside class="app-rail">
     <button class="brand-lockup brand-home" onclick={() => onNavigate('project')} aria-label="CoverForge">
       <img class="brand-logo" src="/coverforge-logo.svg" alt="CoverForge" />
-      <span class="brand-sub">Branding Automation / 品牌自动化</span>
+      <span class="brand-sub">{ui(locale,'Automatisation de marque','Branding Automation','品牌自动化')}</span>
     </button>
 
     <nav class="nav-list" aria-label="CoverForge">
       {#each items as item}
         <button class:active={active(item.view)} class="nav-button" onclick={() => onNavigate(item.view)}>
           <span class="nav-icon">{item.icon}</span>
-          <span class="nav-label">{bilingual(item.key)}</span>
+          <span class="nav-label">{tr(locale,item.key)}</span>
         </button>
       {/each}
     </nav>
 
     <div class="rail-spacer"></div>
 
-    <div class="locale-switch" aria-label="Langue / 语言">
+    <div class="locale-switch" aria-label={ui(locale,'Langue','Language','语言')}>
       <button class:active={locale==='fr'} onclick={() => onLocale('fr')}>FR</button>
-      <button class:active={locale==='zh-CN'} onclick={() => onLocale('zh-CN')}>中文</button>
+      <button class:active={locale==='en'} onclick={() => onLocale('en')}>EN</button>
+      <button class:active={locale==='zh-CN'} onclick={() => onLocale('zh-CN')}>ZH</button>
     </div>
 
     <div class="rail-note">
-      <strong class:unsaved={dirty}>{dirty ? bilingual('status.unsaved') : bilingual('status.synced')}</strong>
+      <strong class:unsaved={dirty}>{dirty ? tr(locale,'status.unsaved') : tr(locale,'status.synced')}</strong>
       <span>Ctrl+S · Ctrl+Z · Ctrl+D</span>
     </div>
   </aside>
