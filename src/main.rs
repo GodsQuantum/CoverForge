@@ -8,7 +8,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use model::{InlineRenderRequest, LegacyGenerateRequest, RenderRequest, Template};
+use model::{InlineRenderRequest, Layer, LegacyGenerateRequest, RenderRequest, Template};
 use render::Renderer;
 use serde_json::{Value, json};
 use std::{
@@ -47,8 +47,10 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/openapi.json", get(openapi))
         .route("/v1/templates", get(list_templates))
         .route("/v1/templates/{id}", get(get_template).put(put_template))
+        .route("/v1/templates/{id}/dataset", get(get_template_dataset))
         .route("/v1/fonts", get(list_fonts).post(upload_font))
         .route("/v1/fonts/{name}", axum::routing::delete(delete_font))
         .route("/v1/asset", get(get_asset))
@@ -83,6 +85,129 @@ async fn health() -> Json<Value> {
     }))
 }
 
+async fn openapi() -> Json<Value> {
+    Json(json!({
+        "openapi": "3.1.0",
+        "info": {
+            "title": "CoverForge API",
+            "version": env!("CARGO_PKG_VERSION"),
+            "description": "API-first visual cover editor and deterministic Rust renderer"
+        },
+        "paths": {
+            "/health": {
+                "get": { "summary": "Service health and version", "responses": { "200": { "description": "Healthy" } } }
+            },
+            "/v1/templates": {
+                "get": { "summary": "List show templates", "responses": { "200": { "description": "Template ids" } } }
+            },
+            "/v1/templates/{id}": {
+                "get": {
+                    "summary": "Get the canonical JSON design",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "Template JSON" } }
+                },
+                "put": {
+                    "summary": "Atomically replace a design",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Template" } } } },
+                    "responses": { "200": { "description": "Saved" } }
+                }
+            },
+            "/v1/templates/{id}/dataset": {
+                "get": {
+                    "summary": "Discover autofill variables, types and usages",
+                    "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "Autofill dataset" } }
+                }
+            },
+            "/v1/fonts": {
+                "get": { "summary": "List renderer fonts", "responses": { "200": { "description": "Fonts" } } },
+                "post": { "summary": "Upload a custom font", "responses": { "200": { "description": "Font added" } } }
+            },
+            "/v1/fonts/{name}": {
+                "delete": {
+                    "summary": "Delete a custom font",
+                    "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "Font deleted" } }
+                }
+            },
+            "/v1/asset": {
+                "get": {
+                    "summary": "Preview an asset inside configured safe roots",
+                    "parameters": [{ "name": "path", "in": "query", "required": true, "schema": { "type": "string" } }],
+                    "responses": { "200": { "description": "Asset bytes" } }
+                }
+            },
+            "/v1/render": {
+                "post": {
+                    "summary": "Render a saved template with autofill variables",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RenderRequest" } } } },
+                    "responses": { "200": { "description": "Rendered assets" } }
+                }
+            },
+            "/v1/render/preview": {
+                "post": {
+                    "summary": "Render unsaved inline template JSON through the production Rust engine",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InlineRenderRequest" } } } },
+                    "responses": { "200": { "description": "Rendered preview assets" } }
+                }
+            },
+            "/v1/render/batch": {
+                "post": {
+                    "summary": "Render up to 100 saved-template jobs",
+                    "responses": { "200": { "description": "Batch render results" } }
+                }
+            },
+            "/api/generate": {
+                "post": {
+                    "summary": "Legacy AutoPublisher compatibility endpoint",
+                    "responses": { "200": { "description": "Rendered asset" } }
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "Frame": {
+                    "type": "object",
+                    "required": ["x", "y", "width", "height"],
+                    "properties": {
+                        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "width": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "height": { "type": "number", "minimum": 0, "maximum": 1 }
+                    }
+                },
+                "Template": {
+                    "type": "object",
+                    "required": ["version", "id", "canvas"],
+                    "description": "Canonical CoverForge JSON. Layer types: text, image, rect. Formats may own independent layer stacks.",
+                    "additionalProperties": true
+                },
+                "RenderRequest": {
+                    "type": "object",
+                    "required": ["template"],
+                    "properties": {
+                        "template": { "type": "string" },
+                        "variables": { "type": "object", "additionalProperties": { "type": "string" } },
+                        "variants": { "type": "array", "items": { "type": "string" } },
+                        "output_stem": { "type": ["string", "null"] }
+                    }
+                },
+                "InlineRenderRequest": {
+                    "type": "object",
+                    "required": ["template"],
+                    "properties": {
+                        "template": { "$ref": "#/components/schemas/Template" },
+                        "variables": { "type": "object", "additionalProperties": { "type": "string" } },
+                        "variants": { "type": "array", "items": { "type": "string" } },
+                        "output_stem": { "type": ["string", "null"] }
+                    }
+                }
+            }
+        }
+    }))
+}
+
 async fn list_templates(State(s): State<AppState>) -> Result<Json<Value>, ApiError> {
     Ok(Json(json!({ "templates": s.renderer.list_templates()? })))
 }
@@ -101,6 +226,14 @@ async fn put_template(
 ) -> Result<Json<Value>, ApiError> {
     s.renderer.save_template(&id, &template)?;
     Ok(Json(json!({"ok": true, "template": id})))
+}
+
+async fn get_template_dataset(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let template = s.renderer.load_template(&id)?;
+    Ok(Json(template_dataset(&template)))
 }
 
 async fn list_fonts(State(s): State<AppState>) -> Result<Json<Value>, ApiError> {
@@ -305,6 +438,108 @@ fn value_to_string(v: Value) -> String {
     }
 }
 
+fn template_dataset(template: &Template) -> Value {
+    let mut fields: BTreeMap<String, (BTreeSet<String>, BTreeSet<String>)> = BTreeMap::new();
+    let mut formats = Vec::new();
+
+    if !template.formats.is_empty() {
+        for (format, definition) in &template.formats {
+            formats.push(json!({
+                "id": format,
+                "width": definition.canvas.width,
+                "height": definition.canvas.height,
+                "layers": definition.layers.len()
+            }));
+            collect_layer_variables(format, &definition.layers, &mut fields);
+        }
+    } else {
+        let variants: Vec<String> = if template.variants.is_empty() {
+            vec!["default".into()]
+        } else {
+            template.variants.keys().cloned().collect()
+        };
+        for format in variants {
+            let canvas = if format == "default" {
+                &template.canvas
+            } else {
+                template.variants.get(&format).unwrap_or(&template.canvas)
+            };
+            formats.push(json!({
+                "id": format,
+                "width": canvas.width,
+                "height": canvas.height,
+                "layers": template.layers.len()
+            }));
+            collect_layer_variables(&format, &template.layers, &mut fields);
+        }
+    }
+
+    let fields: Vec<Value> = fields
+        .into_iter()
+        .map(|(key, (types, usages))| {
+            json!({
+                "key": key,
+                "types": types.into_iter().collect::<Vec<_>>(),
+                "required": true,
+                "usages": usages.into_iter().collect::<Vec<_>>()
+            })
+        })
+        .collect();
+
+    json!({
+        "template": template.id,
+        "formats": formats,
+        "fields": fields
+    })
+}
+
+fn collect_layer_variables(
+    format: &str,
+    layers: &[Layer],
+    fields: &mut BTreeMap<String, (BTreeSet<String>, BTreeSet<String>)>,
+) {
+    for layer in layers {
+        match layer {
+            Layer::Text { id, text, .. } => {
+                for key in variable_keys(text) {
+                    let entry = fields.entry(key).or_default();
+                    entry.0.insert("text".into());
+                    entry.1.insert(format!("{format}:{id}:text"));
+                }
+            }
+            Layer::Image { id, source, .. } => {
+                for key in variable_keys(source) {
+                    let entry = fields.entry(key).or_default();
+                    entry.0.insert("image".into());
+                    entry.1.insert(format!("{format}:{id}:source"));
+                }
+            }
+            Layer::Rect { .. } => {}
+        }
+    }
+}
+
+fn variable_keys(input: &str) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let mut rest = input;
+    while let Some(start) = rest.find("{{") {
+        rest = &rest[start + 2..];
+        let Some(end) = rest.find("}}") else {
+            break;
+        };
+        let key = rest[..end].trim();
+        if !key.is_empty()
+            && key
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+        {
+            out.insert(key.to_string());
+        }
+        rest = &rest[end + 2..];
+    }
+    out
+}
+
 fn safe_font_filename(raw: &str) -> anyhow::Result<String> {
     let file = std::path::Path::new(raw)
         .file_name()
@@ -500,6 +735,15 @@ mod tests {
         assert_eq!(
             legacy_template_parts("CF - IG").unwrap(),
             ("cf".into(), "feed".into())
+        );
+    }
+
+    #[test]
+    fn variable_dataset_parser_is_deterministic() {
+        let keys = variable_keys("{{title}} / {{ episode }} / {{title}} / {{bad key}}");
+        assert_eq!(
+            keys.into_iter().collect::<Vec<_>>(),
+            vec!["episode".to_string(), "title".to_string()]
         );
     }
 }

@@ -100,9 +100,11 @@ See [docs/FONTS.md](docs/FONTS.md).
 
 ```text
 GET    /health
+GET    /openapi.json
 GET    /v1/templates
 GET    /v1/templates/{show}
 PUT    /v1/templates/{show}
+GET    /v1/templates/{show}/dataset
 GET    /v1/fonts
 POST   /v1/fonts
 DELETE /v1/fonts/{filename}
