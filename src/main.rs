@@ -1,8 +1,9 @@
 mod assets;
 mod model;
+mod reframe;
 mod render;
 
-use assets::AssetStore;
+use assets::{AssetStore, load_raster_safely};
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Multipart, Path, Query, State},
@@ -10,7 +11,11 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use model::{InlineRenderRequest, Layer, LegacyGenerateRequest, RenderRequest, Template};
+use model::{
+    InlineRenderRequest, Layer, LegacyGenerateRequest, ReframeRequest, ReframeResult,
+    RenderRequest, Template,
+};
+use reframe::smart_reframe;
 use render::Renderer;
 use serde_json::{Value, json};
 use std::{
@@ -61,6 +66,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/fonts/{name}", axum::routing::delete(delete_font))
         .route("/v1/asset", get(get_asset))
         .route("/v1/assets", post(upload_asset))
+        .route("/v1/reframe", post(reframe_asset))
         .route("/v1/render", post(render))
         .route("/v1/render/preview", post(render_preview))
         .route("/v1/render/batch", post(render_batch))
@@ -287,6 +293,42 @@ async fn upload_asset(
     }
     Err(ApiError(anyhow::anyhow!(
         "multipart field 'asset' is required"
+    )))
+}
+
+async fn reframe_asset(
+    State(s): State<AppState>,
+    Json(req): Json<ReframeRequest>,
+) -> Result<Json<Vec<ReframeResult>>, ApiError> {
+    if req.formats.is_empty() {
+        return Err(ApiError(anyhow::anyhow!(
+            "at least one reframe format is required"
+        )));
+    }
+    if req
+        .formats
+        .iter()
+        .any(|format| format.width == 0 || format.height == 0)
+    {
+        return Err(ApiError(anyhow::anyhow!(
+            "reframe dimensions must be positive"
+        )));
+    }
+    let path = s.renderer.resolve_asset_path(&req.asset)?;
+    if path
+        .extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|value| value.eq_ignore_ascii_case("svg"))
+    {
+        return Err(ApiError(anyhow::anyhow!(
+            "smart reframe only supports raster images"
+        )));
+    }
+    let image = load_raster_safely(&path)?;
+    Ok(Json(smart_reframe(
+        &image,
+        &req.formats,
+        req.focal_override,
     )))
 }
 
