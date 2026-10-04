@@ -1,3 +1,4 @@
+use crate::assets::{load_raster_safely, validate_svg_logo};
 use crate::model::{
     Canvas, Frame, InlineRenderRequest, Layer, RenderRequest, RenderResponse, RenderedAsset,
     Template,
@@ -352,19 +353,29 @@ impl Renderer {
             .map(|tail| format!("/srv/storage/{tail}"))
             .unwrap_or_else(|| raw.to_string());
         let p = PathBuf::from(&translated);
+        let mut roots: Vec<PathBuf> = Vec::new();
+        for root in self
+            .asset_roots
+            .iter()
+            .chain(std::iter::once(&self.output_dir))
+        {
+            let normalized = root.canonicalize().unwrap_or_else(|_| root.clone());
+            if !roots.contains(&normalized) {
+                roots.push(normalized);
+            }
+        }
         let candidates: Vec<PathBuf> = if p.is_absolute() {
             vec![p]
         } else {
-            self.asset_roots.iter().map(|r| r.join(&p)).collect()
+            roots.iter().map(|root| root.join(&p)).collect()
         };
         for candidate in candidates {
             if !candidate.exists() {
                 continue;
             }
             let canonical = candidate.canonicalize()?;
-            for root in &self.asset_roots {
-                let r = root.canonicalize().unwrap_or_else(|_| root.clone());
-                if canonical.starts_with(&r) {
+            for root in &roots {
+                if canonical.starts_with(root) {
                     return Ok(canonical);
                 }
             }
@@ -381,7 +392,15 @@ impl Renderer {
         fx: f32,
         fy: f32,
     ) -> Result<Vec<u8>> {
-        let img = image::open(path)?;
+        let img = if path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("svg"))
+        {
+            load_svg_logo(path)?
+        } else {
+            load_raster_safely(path)?
+        };
         let out = if fit == "contain" {
             let mut bg = DynamicImage::new_rgba8(w, h);
             let resized = img.resize(w, h, FilterType::Lanczos3);
@@ -418,6 +437,27 @@ impl Renderer {
         pixmap.save_png(path)?;
         Ok(())
     }
+}
+
+fn load_svg_logo(path: &Path) -> Result<DynamicImage> {
+    let bytes = fs::read(path)?;
+    let (width, height) = validate_svg_logo(&bytes)?;
+    let source = std::str::from_utf8(&bytes)?;
+    let options = usvg::Options::default();
+    let tree = usvg::Tree::from_str(source, &options)?;
+    let mut pixmap =
+        tiny_skia::Pixmap::new(width, height).ok_or_else(|| anyhow!("invalid SVG dimensions"))?;
+    let tree_size = tree.size();
+    let sx = width as f32 / tree_size.width();
+    let sy = height as f32 / tree_size.height();
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(sx, sy),
+        &mut pixmap.as_mut(),
+    );
+    let rgba = image::RgbaImage::from_raw(width, height, pixmap.data().to_vec())
+        .ok_or_else(|| anyhow!("could not convert SVG raster"))?;
+    Ok(DynamicImage::ImageRgba8(rgba))
 }
 
 fn resolve_format<'a>(template: &'a Template, variant: &str) -> Result<(&'a Canvas, &'a [Layer])> {
@@ -667,5 +707,73 @@ mod tests {
         );
         assert!(fitted < 110.0);
         assert!(fitted >= 18.0);
+    }
+
+    #[test]
+    fn output_dir_is_safe_asset_root() -> anyhow::Result<()> {
+        let base = std::env::temp_dir().join(format!("coverforge-root-{}", uuid::Uuid::new_v4()));
+        let templates = base.join("templates");
+        let output = base.join("output");
+        std::fs::create_dir_all(&templates)?;
+        std::fs::create_dir_all(&output)?;
+        let asset = output.join("uploaded.png");
+        std::fs::write(&asset, b"asset")?;
+        let renderer = Renderer {
+            template_dir: templates,
+            output_dir: output.clone(),
+            asset_roots: Vec::new(),
+            font_dir: None,
+        };
+        assert_eq!(
+            renderer.resolve_asset_path(asset.to_str().unwrap())?,
+            asset.canonicalize()?
+        );
+        assert!(renderer.resolve_asset_path("/etc/passwd").is_err());
+        std::fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn safe_svg_logo_renders() -> anyhow::Result<()> {
+        let base = std::env::temp_dir().join(format!("coverforge-svg-{}", uuid::Uuid::new_v4()));
+        let templates = base.join("templates");
+        let output = base.join("output");
+        std::fs::create_dir_all(&templates)?;
+        std::fs::create_dir_all(&output)?;
+        let store = crate::assets::AssetStore::new(&output)?;
+        let svg = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50"><rect width="100" height="50" fill="#FF7A00"/></svg>"##;
+        let asset = store.save_upload("logo.svg", Some("image/svg+xml"), svg)?;
+        let renderer = Renderer {
+            template_dir: templates,
+            output_dir: output,
+            asset_roots: vec![base.clone()],
+            font_dir: None,
+        };
+        let canvas = Canvas {
+            width: 200,
+            height: 100,
+            background: "#000000".into(),
+        };
+        let layers = vec![Layer::Image {
+            id: "logo".into(),
+            name: "Logo".into(),
+            visible: true,
+            locked: false,
+            frame: Frame {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            },
+            source: asset.path,
+            fit: "contain".into(),
+            focal_x: 0.5,
+            focal_y: 0.5,
+            opacity: 1.0,
+        }];
+        let composed = renderer.compose_svg(&canvas, &layers, &BTreeMap::new())?;
+        assert!(composed.contains("data:image/png;base64,"));
+        std::fs::remove_dir_all(base)?;
+        Ok(())
     }
 }
