@@ -1,5 +1,6 @@
 mod assets;
 mod model;
+mod package;
 mod reframe;
 mod render;
 
@@ -12,9 +13,10 @@ use axum::{
     routing::{get, post},
 };
 use model::{
-    InlineRenderRequest, Layer, LegacyGenerateRequest, ReframeRequest, ReframeResult,
-    RenderRequest, Template,
+    InlineRenderRequest, Layer, LegacyGenerateRequest, PackageRenderRequest, ReframeRequest,
+    ReframeResult, RenderRequest, Template,
 };
+use package::render_package as build_render_package;
 use reframe::smart_reframe;
 use render::Renderer;
 use serde_json::{Value, json};
@@ -70,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/render", post(render))
         .route("/v1/render/preview", post(render_preview))
         .route("/v1/render/batch", post(render_batch))
+        .route("/v1/render/package", post(render_package))
         .route("/api/generate", post(legacy_generate))
         .nest_service("/outputs", ServeDir::new(output_dir))
         .nest_service("/uploads", ServeDir::new(upload_dir))
@@ -422,6 +425,16 @@ async fn render_batch(
         results.push(s.renderer.render(&req)?);
     }
     Ok(Json(serde_json::to_value(results)?))
+}
+
+async fn render_package(
+    State(s): State<AppState>,
+    Json(req): Json<PackageRenderRequest>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(serde_json::to_value(build_render_package(
+        &s.renderer,
+        &req,
+    )?)?))
 }
 
 async fn legacy_generate(

@@ -239,6 +239,50 @@ pub struct ReframeResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageRenderRequest {
+    #[serde(default)]
+    pub template: Option<String>,
+    #[serde(default)]
+    pub inline_template: Option<Template>,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    #[serde(default)]
+    pub variants: Vec<String>,
+    #[serde(default)]
+    pub output_stem: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PackageManifestAsset {
+    pub variant: String,
+    pub width: u32,
+    pub height: u32,
+    pub filename: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PackageManifest {
+    pub coverforge_version: String,
+    pub generated_at: String,
+    pub template: String,
+    #[serde(default)]
+    pub source_image: Option<String>,
+    pub variables: BTreeMap<String, String>,
+    pub assets: Vec<PackageManifestAsset>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PackageRenderResponse {
+    pub ok: bool,
+    pub template: String,
+    pub assets: Vec<RenderedAsset>,
+    pub package_filename: String,
+    pub package_path: String,
+    pub package_url: String,
+    pub manifest: PackageManifest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LegacyGenerateRequest {
     pub template_name: String,
     pub output_filename: String,
