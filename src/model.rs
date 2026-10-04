@@ -62,6 +62,12 @@ pub struct Frame {
 pub enum Layer {
     Image {
         id: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default = "yes")]
+        visible: bool,
+        #[serde(default)]
+        locked: bool,
         frame: Frame,
         source: String,
         #[serde(default = "default_fit")]
@@ -75,6 +81,12 @@ pub enum Layer {
     },
     Text {
         id: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default = "yes")]
+        visible: bool,
+        #[serde(default)]
+        locked: bool,
         frame: Frame,
         text: String,
         #[serde(default = "default_font_family")]
@@ -82,6 +94,10 @@ pub enum Layer {
         #[serde(default = "default_font_weight")]
         font_weight: u16,
         font_size: f32,
+        #[serde(default)]
+        auto_fit: bool,
+        #[serde(default)]
+        min_font_size: Option<f32>,
         #[serde(default = "default_text_color")]
         color: String,
         #[serde(default)]
@@ -98,9 +114,17 @@ pub enum Layer {
         uppercase: bool,
         #[serde(default)]
         rotation_deg: f32,
+        #[serde(default = "one")]
+        opacity: f32,
     },
     Rect {
         id: String,
+        #[serde(default)]
+        name: String,
+        #[serde(default = "yes")]
+        visible: bool,
+        #[serde(default)]
+        locked: bool,
         frame: Frame,
         fill: String,
         #[serde(default = "one")]
@@ -108,6 +132,16 @@ pub enum Layer {
         #[serde(default)]
         radius: f32,
     },
+}
+
+impl Layer {
+    pub fn visible(&self) -> bool {
+        match self {
+            Layer::Image { visible, .. }
+            | Layer::Text { visible, .. }
+            | Layer::Rect { visible, .. } => *visible,
+        }
+    }
 }
 
 fn default_fit() -> String {
@@ -118,6 +152,9 @@ fn center() -> f32 {
 }
 fn one() -> f32 {
     1.0
+}
+fn yes() -> bool {
+    true
 }
 fn default_font_family() -> String {
     "League Spartan".into()
@@ -138,6 +175,17 @@ fn default_line_height() -> f32 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderRequest {
     pub template: String,
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
+    #[serde(default)]
+    pub variants: Vec<String>,
+    #[serde(default)]
+    pub output_stem: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineRenderRequest {
+    pub template: Template,
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
     #[serde(default)]
@@ -170,4 +218,37 @@ pub struct RenderResponse {
     pub ok: bool,
     pub template: String,
     pub assets: Vec<RenderedAsset>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_text_layer_defaults_are_backward_compatible() {
+        let raw = r##"{
+          "type":"text",
+          "id":"title",
+          "frame":{"x":0.1,"y":0.2,"width":0.7,"height":0.2},
+          "text":"{{title}}",
+          "font_size":0.08
+        }"##;
+        let layer: Layer = serde_json::from_str(raw).expect("legacy layer should deserialize");
+        assert!(layer.visible());
+        match layer {
+            Layer::Text {
+                name,
+                locked,
+                auto_fit,
+                opacity,
+                ..
+            } => {
+                assert!(name.is_empty());
+                assert!(!locked);
+                assert!(!auto_fit);
+                assert_eq!(opacity, 1.0);
+            }
+            _ => panic!("expected text layer"),
+        }
+    }
 }

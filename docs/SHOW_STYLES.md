@@ -1,6 +1,6 @@
 # Show styles
 
-CoverForge v0.3 uses **one JSON file per show**.
+CoverForge v0.4 uses **one JSON file per show**.
 
 A show file contains brand identity, palette, fonts and every output layout.
 
@@ -107,7 +107,20 @@ Derived from Le Clown Tueur and P*rno Mortel:
 
 ## Editing
 
-The UI edits the complete show JSON and writes it atomically.
+The v0.4 Studio keeps the show JSON as the source of truth while Fabric.js is only the interactive editing surface. Every format can own its own layer stack, so a title, episode number, subtitle, logo or image can be positioned independently for YouTube, square, feed, vertical and Acast.
+
+Every layer supports:
+
+- `id` — stable API key;
+- `name` — human-readable Studio label;
+- `visible` and `locked`;
+- normalized `frame.x/y/width/height`.
+
+Text layers additionally support `auto_fit`, `min_font_size`, `max_lines`, opacity, stroke, alignment and rotation. Variables are discovered dynamically from strings such as `{{title}}`, `{{episode}}` or `{{subtitle}}`; agents are not limited to a fixed field list.
+
+The browser canvas updates interactively, while `POST /v1/render/preview` accepts an inline unsaved template and renders it through the exact Rust/resvg production path.
+
+The UI writes the complete show JSON atomically.
 
 Production path on Cloud9:
 
