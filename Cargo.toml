@@ -11,6 +11,7 @@ anyhow = "1"
 axum = { version = "0.8.9", features = ["json", "multipart"] }
 base64 = "0.22"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+kamadak-exif = "0.6.1"
 mime_guess = "2"
 resvg = "0.48.1"
 serde = { version = "1", features = ["derive"] }

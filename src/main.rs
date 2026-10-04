@@ -1,6 +1,8 @@
+mod assets;
 mod model;
 mod render;
 
+use assets::AssetStore;
 use axum::{
     Json, Router,
     extract::{DefaultBodyLimit, Multipart, Path, Query, State},
@@ -25,6 +27,7 @@ use tracing_subscriber::EnvFilter;
 struct AppState {
     renderer: Arc<Renderer>,
     font_dir: PathBuf,
+    asset_store: Arc<AssetStore>,
 }
 
 #[tokio::main]
@@ -40,9 +43,12 @@ async fn main() -> anyhow::Result<()> {
     let font_dir =
         PathBuf::from(std::env::var("COVERFORGE_FONT_DIR").unwrap_or_else(|_| "./fonts".into()));
     fs::create_dir_all(&font_dir)?;
+    let asset_store = Arc::new(AssetStore::new(&output_dir)?);
+    let upload_dir = asset_store.root.clone();
     let state = AppState {
         renderer,
         font_dir: font_dir.clone(),
+        asset_store,
     };
 
     let app = Router::new()
@@ -54,15 +60,17 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/fonts", get(list_fonts).post(upload_font))
         .route("/v1/fonts/{name}", axum::routing::delete(delete_font))
         .route("/v1/asset", get(get_asset))
+        .route("/v1/assets", post(upload_asset))
         .route("/v1/render", post(render))
         .route("/v1/render/preview", post(render_preview))
         .route("/v1/render/batch", post(render_batch))
         .route("/api/generate", post(legacy_generate))
         .nest_service("/outputs", ServeDir::new(output_dir))
+        .nest_service("/uploads", ServeDir::new(upload_dir))
         .nest_service("/font-files/custom", ServeDir::new(font_dir))
         .nest_service("/font-files/system", ServeDir::new("/usr/share/fonts"))
         .fallback_service(ServeDir::new("web/build").append_index_html_on_directories(true))
-        .layer(DefaultBodyLimit::max(24 * 1024 * 1024))
+        .layer(DefaultBodyLimit::max(52 * 1024 * 1024))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -259,6 +267,27 @@ async fn get_asset(
         HeaderValue::from_static("private, max-age=300"),
     );
     Ok((headers, bytes))
+}
+
+async fn upload_asset(
+    State(s): State<AppState>,
+    mut multipart: Multipart,
+) -> Result<Json<Value>, ApiError> {
+    while let Some(field) = multipart.next_field().await? {
+        if field.name() != Some("asset") {
+            continue;
+        }
+        let filename = field.file_name().unwrap_or("asset.png").to_string();
+        let mime = field.content_type().map(str::to_string);
+        let bytes = field.bytes().await?;
+        let asset = s
+            .asset_store
+            .save_upload(&filename, mime.as_deref(), &bytes)?;
+        return Ok(Json(serde_json::to_value(asset)?));
+    }
+    Err(ApiError(anyhow::anyhow!(
+        "multipart field 'asset' is required"
+    )))
 }
 
 async fn upload_font(
