@@ -82,3 +82,35 @@ export type InlineRenderRequest = {
   variants?:string[];
   output_stem?:string;
 };
+
+export type UploadedAsset = {
+  id:string;
+  filename:string;
+  path:string;
+  url:string;
+  mime:string;
+  width:number;
+  height:number;
+  kind:'image'|'logo'|string;
+};
+
+export type Point = { x:number; y:number };
+
+export type ReframeTarget = {
+  id:string;
+  width:number;
+  height:number;
+};
+
+export type ReframeRequest = {
+  asset:string;
+  formats:ReframeTarget[];
+  focal_override?:Point|null;
+};
+
+export type ReframeResult = {
+  format:string;
+  crop:Frame;
+  focal:Point;
+  score:number;
+};
