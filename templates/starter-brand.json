@@ -1,0 +1,745 @@
+{
+  "version": 2,
+  "id": "starter-brand",
+  "canvas": {
+    "width": 1080,
+    "height": 1080,
+    "background": "#111827"
+  },
+  "variants": {},
+  "layers": [],
+  "brand": {
+    "display_name": "Starter Brand / 品牌入门模板",
+    "visual_summary": "Orange-forward generic branding starter for creators, brands and campaigns.",
+    "palette": {
+      "forge": "#FF7A00",
+      "deep_orange": "#FF4D00",
+      "amber": "#FFC64D",
+      "cream": "#FFF8F1",
+      "charcoal": "#111827"
+    },
+    "fonts": {
+      "heading": "Inter",
+      "body": "Inter"
+    },
+    "logos": {
+      "primary": "{{logo}}"
+    },
+    "notes": [
+      "Une image, tous les formats.",
+      "一张图，多种格式"
+    ]
+  },
+  "formats": {
+    "youtube": {
+      "canvas": {
+        "width": 1920,
+        "height": 1080,
+        "background": "#111827"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "name": "Image source",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "rect",
+          "id": "shade",
+          "name": "Contraste",
+          "frame": {
+            "x": 0,
+            "y": 0.48,
+            "width": 1,
+            "height": 0.52
+          },
+          "fill": "#111827",
+          "opacity": 0.55,
+          "radius": 0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "name": "Logo",
+          "frame": {
+            "x": 0.76,
+            "y": 0.065,
+            "width": 0.18,
+            "height": 0.1
+          },
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "badge",
+          "name": "Badge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.075,
+            "width": 0.25,
+            "height": 0.055
+          },
+          "text": "{{badge}}",
+          "font_family": "Inter",
+          "font_weight": 700,
+          "font_size": 0.04,
+          "auto_fit": true,
+          "min_font_size": 0.016,
+          "color": "#FFC64D",
+          "align": "left",
+          "max_lines": 1,
+          "line_height": 1,
+          "uppercase": true,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "name": "Titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.58,
+            "width": 0.64,
+            "height": 0.2
+          },
+          "text": "{{title}}",
+          "font_family": "Inter",
+          "font_weight": 800,
+          "font_size": 0.12,
+          "auto_fit": true,
+          "min_font_size": 0.025,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.92,
+          "uppercase": false,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "name": "Sous-titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.79,
+            "width": 0.55,
+            "height": 0.07
+          },
+          "text": "{{subtitle}}",
+          "font_family": "Inter",
+          "font_weight": 500,
+          "font_size": 0.047,
+          "auto_fit": true,
+          "min_font_size": 0.018,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 2,
+          "line_height": 1,
+          "uppercase": false,
+          "opacity": 0.94
+        },
+        {
+          "type": "rect",
+          "id": "accent",
+          "name": "Accent Forge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.54,
+            "width": 0.12,
+            "height": 0.012
+          },
+          "fill": "#FF7A00",
+          "opacity": 1,
+          "radius": 0.01
+        }
+      ],
+      "label": "YouTube",
+      "category": "social",
+      "platform": "YouTube",
+      "suffix": "youtube"
+    },
+    "square": {
+      "canvas": {
+        "width": 1080,
+        "height": 1080,
+        "background": "#111827"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "name": "Image source",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "rect",
+          "id": "shade",
+          "name": "Contraste",
+          "frame": {
+            "x": 0,
+            "y": 0.48,
+            "width": 1,
+            "height": 0.52
+          },
+          "fill": "#111827",
+          "opacity": 0.55,
+          "radius": 0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "name": "Logo",
+          "frame": {
+            "x": 0.68,
+            "y": 0.075,
+            "width": 0.24,
+            "height": 0.11
+          },
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "badge",
+          "name": "Badge",
+          "frame": {
+            "x": 0.08,
+            "y": 0.09,
+            "width": 0.32,
+            "height": 0.06
+          },
+          "text": "{{badge}}",
+          "font_family": "Inter",
+          "font_weight": 700,
+          "font_size": 0.04,
+          "auto_fit": true,
+          "min_font_size": 0.016,
+          "color": "#FFC64D",
+          "align": "left",
+          "max_lines": 1,
+          "line_height": 1,
+          "uppercase": true,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "name": "Titre",
+          "frame": {
+            "x": 0.08,
+            "y": 0.57,
+            "width": 0.84,
+            "height": 0.19
+          },
+          "text": "{{title}}",
+          "font_family": "Inter",
+          "font_weight": 800,
+          "font_size": 0.12,
+          "auto_fit": true,
+          "min_font_size": 0.025,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.92,
+          "uppercase": false,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "name": "Sous-titre",
+          "frame": {
+            "x": 0.08,
+            "y": 0.775,
+            "width": 0.72,
+            "height": 0.07
+          },
+          "text": "{{subtitle}}",
+          "font_family": "Inter",
+          "font_weight": 500,
+          "font_size": 0.047,
+          "auto_fit": true,
+          "min_font_size": 0.018,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 2,
+          "line_height": 1,
+          "uppercase": false,
+          "opacity": 0.94
+        },
+        {
+          "type": "rect",
+          "id": "accent",
+          "name": "Accent Forge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.54,
+            "width": 0.12,
+            "height": 0.012
+          },
+          "fill": "#FF7A00",
+          "opacity": 1,
+          "radius": 0.01
+        }
+      ],
+      "label": "Carré / 方形",
+      "category": "social",
+      "platform": "Instagram",
+      "suffix": "square"
+    },
+    "feed": {
+      "canvas": {
+        "width": 1080,
+        "height": 1350,
+        "background": "#111827"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "name": "Image source",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "rect",
+          "id": "shade",
+          "name": "Contraste",
+          "frame": {
+            "x": 0,
+            "y": 0.48,
+            "width": 1,
+            "height": 0.52
+          },
+          "fill": "#111827",
+          "opacity": 0.55,
+          "radius": 0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "name": "Logo",
+          "frame": {
+            "x": 0.76,
+            "y": 0.065,
+            "width": 0.18,
+            "height": 0.1
+          },
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "badge",
+          "name": "Badge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.075,
+            "width": 0.25,
+            "height": 0.055
+          },
+          "text": "{{badge}}",
+          "font_family": "Inter",
+          "font_weight": 700,
+          "font_size": 0.04,
+          "auto_fit": true,
+          "min_font_size": 0.016,
+          "color": "#FFC64D",
+          "align": "left",
+          "max_lines": 1,
+          "line_height": 1,
+          "uppercase": true,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "name": "Titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.58,
+            "width": 0.64,
+            "height": 0.2
+          },
+          "text": "{{title}}",
+          "font_family": "Inter",
+          "font_weight": 800,
+          "font_size": 0.12,
+          "auto_fit": true,
+          "min_font_size": 0.025,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.92,
+          "uppercase": false,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "name": "Sous-titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.79,
+            "width": 0.55,
+            "height": 0.07
+          },
+          "text": "{{subtitle}}",
+          "font_family": "Inter",
+          "font_weight": 500,
+          "font_size": 0.047,
+          "auto_fit": true,
+          "min_font_size": 0.018,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 2,
+          "line_height": 1,
+          "uppercase": false,
+          "opacity": 0.94
+        },
+        {
+          "type": "rect",
+          "id": "accent",
+          "name": "Accent Forge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.54,
+            "width": 0.12,
+            "height": 0.012
+          },
+          "fill": "#FF7A00",
+          "opacity": 1,
+          "radius": 0.01
+        }
+      ],
+      "label": "Feed 4:5",
+      "category": "social",
+      "platform": "Instagram / LinkedIn",
+      "suffix": "feed"
+    },
+    "vertical": {
+      "canvas": {
+        "width": 1080,
+        "height": 1920,
+        "background": "#111827"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "name": "Image source",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "rect",
+          "id": "shade",
+          "name": "Contraste",
+          "frame": {
+            "x": 0,
+            "y": 0.48,
+            "width": 1,
+            "height": 0.52
+          },
+          "fill": "#111827",
+          "opacity": 0.55,
+          "radius": 0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "name": "Logo",
+          "frame": {
+            "x": 0.7,
+            "y": 0.075,
+            "width": 0.22,
+            "height": 0.1
+          },
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "badge",
+          "name": "Badge",
+          "frame": {
+            "x": 0.07,
+            "y": 0.1,
+            "width": 0.32,
+            "height": 0.055
+          },
+          "text": "{{badge}}",
+          "font_family": "Inter",
+          "font_weight": 700,
+          "font_size": 0.04,
+          "auto_fit": true,
+          "min_font_size": 0.016,
+          "color": "#FFC64D",
+          "align": "left",
+          "max_lines": 1,
+          "line_height": 1,
+          "uppercase": true,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "name": "Titre",
+          "frame": {
+            "x": 0.07,
+            "y": 0.57,
+            "width": 0.86,
+            "height": 0.17
+          },
+          "text": "{{title}}",
+          "font_family": "Inter",
+          "font_weight": 800,
+          "font_size": 0.13,
+          "auto_fit": true,
+          "min_font_size": 0.025,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.92,
+          "uppercase": false,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "name": "Sous-titre",
+          "frame": {
+            "x": 0.07,
+            "y": 0.745,
+            "width": 0.76,
+            "height": 0.065
+          },
+          "text": "{{subtitle}}",
+          "font_family": "Inter",
+          "font_weight": 500,
+          "font_size": 0.047,
+          "auto_fit": true,
+          "min_font_size": 0.018,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 2,
+          "line_height": 1,
+          "uppercase": false,
+          "opacity": 0.94
+        },
+        {
+          "type": "rect",
+          "id": "accent",
+          "name": "Accent Forge",
+          "frame": {
+            "x": 0.07,
+            "y": 0.53,
+            "width": 0.12,
+            "height": 0.012
+          },
+          "fill": "#FF7A00",
+          "opacity": 1,
+          "radius": 0.01
+        }
+      ],
+      "label": "Vertical 9:16",
+      "category": "social",
+      "platform": "Reels / TikTok / Stories",
+      "suffix": "vertical"
+    },
+    "landscape": {
+      "canvas": {
+        "width": 1200,
+        "height": 628,
+        "background": "#111827"
+      },
+      "layers": [
+        {
+          "type": "image",
+          "id": "background",
+          "name": "Image source",
+          "frame": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          },
+          "source": "{{background}}",
+          "fit": "cover",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "rect",
+          "id": "shade",
+          "name": "Contraste",
+          "frame": {
+            "x": 0,
+            "y": 0.48,
+            "width": 1,
+            "height": 0.52
+          },
+          "fill": "#111827",
+          "opacity": 0.55,
+          "radius": 0
+        },
+        {
+          "type": "image",
+          "id": "logo",
+          "name": "Logo",
+          "frame": {
+            "x": 0.76,
+            "y": 0.065,
+            "width": 0.18,
+            "height": 0.1
+          },
+          "source": "{{logo}}",
+          "fit": "contain",
+          "focal_x": 0.5,
+          "focal_y": 0.5,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "badge",
+          "name": "Badge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.075,
+            "width": 0.25,
+            "height": 0.055
+          },
+          "text": "{{badge}}",
+          "font_family": "Inter",
+          "font_weight": 700,
+          "font_size": 0.04,
+          "auto_fit": true,
+          "min_font_size": 0.016,
+          "color": "#FFC64D",
+          "align": "left",
+          "max_lines": 1,
+          "line_height": 1,
+          "uppercase": true,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "name": "Titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.58,
+            "width": 0.64,
+            "height": 0.2
+          },
+          "text": "{{title}}",
+          "font_family": "Inter",
+          "font_weight": 800,
+          "font_size": 0.12,
+          "auto_fit": true,
+          "min_font_size": 0.025,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 3,
+          "line_height": 0.92,
+          "uppercase": false,
+          "opacity": 1
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "name": "Sous-titre",
+          "frame": {
+            "x": 0.055,
+            "y": 0.79,
+            "width": 0.55,
+            "height": 0.07
+          },
+          "text": "{{subtitle}}",
+          "font_family": "Inter",
+          "font_weight": 500,
+          "font_size": 0.047,
+          "auto_fit": true,
+          "min_font_size": 0.018,
+          "color": "#FFF8F1",
+          "align": "left",
+          "max_lines": 2,
+          "line_height": 1,
+          "uppercase": false,
+          "opacity": 0.94
+        },
+        {
+          "type": "rect",
+          "id": "accent",
+          "name": "Accent Forge",
+          "frame": {
+            "x": 0.055,
+            "y": 0.54,
+            "width": 0.12,
+            "height": 0.012
+          },
+          "fill": "#FF7A00",
+          "opacity": 1,
+          "radius": 0.01
+        }
+      ],
+      "label": "Paysage / 横向",
+      "category": "social",
+      "platform": "Web / Social",
+      "suffix": "landscape"
+    }
+  }
+}
