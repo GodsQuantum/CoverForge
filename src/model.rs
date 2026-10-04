@@ -49,7 +49,7 @@ fn default_background() -> String {
     "#000000".into()
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Frame {
     pub x: f32,
     pub y: f32,
@@ -197,6 +197,35 @@ pub struct InlineRenderRequest {
     pub variants: Vec<String>,
     #[serde(default)]
     pub output_stem: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReframeTarget {
+    pub id: String,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReframeRequest {
+    pub asset: String,
+    pub formats: Vec<ReframeTarget>,
+    #[serde(default)]
+    pub focal_override: Option<Point>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ReframeResult {
+    pub format: String,
+    pub crop: Frame,
+    pub focal: Point,
+    pub score: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
