@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import ApiPanel from '../lib/components/ApiPanel.svelte';
   import AppShell from '../lib/components/AppShell.svelte';
   import AssetLibrary from '../lib/components/AssetLibrary.svelte';
   import BrandKitPanel from '../lib/components/BrandKitPanel.svelte';
@@ -8,6 +9,7 @@
   import MultiFormatGrid from '../lib/components/MultiFormatGrid.svelte';
   import ProjectHeader from '../lib/components/ProjectHeader.svelte';
   import SourceImagePanel from '../lib/components/SourceImagePanel.svelte';
+  import TemplatesPanel from '../lib/components/TemplatesPanel.svelte';
   import { applyReframeToTemplate, normalizeSelectedFormats, toggleFormatSelection } from '../lib/format-state';
   import { tr, type Locale } from '../lib/i18n';
   import { api } from '../lib/api';
@@ -476,6 +478,27 @@
   async function onTemplateChange() {
     try { await loadTemplate(template); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
+  }
+
+  async function openTemplateFromLibrary(id:string) {
+    try {
+      template = id;
+      await loadTemplate(id);
+      await switchView('project');
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function handleTemplateCreated(id:string) {
+    try {
+      templates = await api.listTemplates();
+      template = id;
+      await loadTemplate(id);
+      await switchView('project');
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
   }
 
   async function chooseFormat(name:string) {
@@ -1256,6 +1279,18 @@
           onFontFace={setFontFace}
         />
       </section>
+
+    {:else if activeView === 'templates'}
+      <TemplatesPanel
+        {templates}
+        currentTemplate={template}
+        {locale}
+        onOpen={openTemplateFromLibrary}
+        onCreated={handleTemplateCreated}
+      />
+
+    {:else if activeView === 'api'}
+      <ApiPanel templateId={template} {locale} />
 
     {:else if activeView === 'library'}
       <AssetLibrary

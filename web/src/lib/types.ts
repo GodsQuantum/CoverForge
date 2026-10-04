@@ -148,3 +148,32 @@ export type PackageRenderResponse = {
   package_url:string;
   manifest:PackageManifest;
 };
+
+export type HealthResponse = {
+  ok:boolean;
+  service:string;
+  version:string;
+  renderer?:string;
+  templates_editable?:boolean;
+  fonts_editable?:boolean;
+};
+
+export type TemplateDatasetFormat = {
+  id:string;
+  width:number;
+  height:number;
+  layers:number;
+};
+
+export type TemplateDatasetField = {
+  key:string;
+  types:string[];
+  required:boolean;
+  usages:string[];
+};
+
+export type TemplateDataset = {
+  template:string;
+  formats:TemplateDatasetFormat[];
+  fields:TemplateDatasetField[];
+};
