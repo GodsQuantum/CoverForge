@@ -1,5 +1,6 @@
 import type {
   FontRecord,
+  HealthResponse,
   InlineRenderRequest,
   PackageRenderRequest,
   PackageRenderResponse,
@@ -8,6 +9,7 @@ import type {
   RenderRequest,
   RenderResponse,
   TemplateData,
+  TemplateDataset,
   UploadedAsset
 } from './types';
 
@@ -21,6 +23,12 @@ async function json<T>(input:RequestInfo | URL, init?:RequestInit):Promise<T> {
 }
 
 export const api = {
+  health():Promise<HealthResponse> {
+    return json<HealthResponse>('/health');
+  },
+  getDataset(id:string):Promise<TemplateDataset> {
+    return json<TemplateDataset>('/v1/templates/' + encodeURIComponent(id) + '/dataset');
+  },
   async listTemplates():Promise<string[]> {
     const data = await json<{templates:string[]}>('/v1/templates');
     return Array.isArray(data.templates) ? data.templates : [];

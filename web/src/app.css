@@ -377,3 +377,50 @@ button.format-mode{border:1px solid #F4C79D;cursor:pointer}
   .brand-map-row,.brand-map-row.logo-row{grid-template-columns:1fr}
   .export-assets{grid-template-columns:1fr}
 }
+
+
+/* v0.6 templates + API workspace */
+.template-create-panel{display:grid;grid-template-columns:minmax(190px,.9fr) minmax(220px,1fr) auto auto;align-items:center;gap:10px;padding:12px;margin-bottom:14px}
+.template-create-copy{display:flex;flex-direction:column;gap:3px}
+.template-create-copy strong{font-size:11px}
+.template-create-copy span{font-size:9px;color:var(--muted-2)}
+.template-status{margin:0 0 12px;padding:9px 11px;border:1px solid rgba(22,134,92,.22);border-radius:9px;background:rgba(22,134,92,.06);color:var(--success);font-size:10px;font-weight:800}
+.template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.template-card{padding:12px;display:grid;grid-template-columns:54px minmax(0,1fr) auto;align-items:center;gap:11px;min-width:0}
+.template-card.starter{border-color:#F2B37D;background:linear-gradient(145deg,#FFFDF9,#FFF1E4)}
+.template-card.current{box-shadow:0 0 0 2px rgba(255,122,0,.10),var(--shadow)}
+.template-card-mark{width:54px;height:54px;border-radius:14px;background:#FFF0E2;display:grid;place-items:center;color:var(--deep-orange);font-weight:900}
+.template-card-mark img{width:40px;height:40px}
+.template-card-body{min-width:0}
+.template-title-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.template-title-row>strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.template-card-body p{margin:5px 0 0;font-size:9px;line-height:1.45;color:var(--muted)}
+.template-badge{padding:3px 6px;border-radius:999px;background:#FFF0E2;color:#A5530B;font-size:7px;font-weight:900}
+.current-badge{background:var(--charcoal);color:#fff}
+.api-grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1.4fr);gap:12px}
+.api-card{overflow:hidden}
+.api-card-body{padding:12px}
+.api-card-body p{margin:0 0 10px;color:var(--muted);font-size:10px;line-height:1.5}
+.api-card-body>code{display:block;padding:9px;border-radius:9px;background:#171A21;color:#F8FAFC;font-size:9px}
+.dataset-formats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.dataset-formats span{padding:5px 7px;border:1px solid var(--line);border-radius:999px;background:#FFF9F4;font-size:8px;font-weight:800;color:var(--muted)}
+.dataset-fields{display:flex;flex-direction:column;gap:6px}
+.dataset-fields>div{display:grid;grid-template-columns:130px 100px minmax(0,1fr);gap:8px;align-items:center;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#FFFDF9}
+.dataset-fields strong{font-size:10px}
+.dataset-fields span{font-size:8px;color:var(--deep-orange);font-weight:850}
+.dataset-fields small{font-size:8px;color:var(--muted-2);overflow-wrap:anywhere}
+.api-examples{margin-top:18px}
+.api-examples h2{font-size:15px;margin:0 0 10px}
+.api-example{margin-bottom:8px;overflow:hidden}
+.api-example-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-bottom:1px solid var(--line)}
+.api-example-head strong{font-size:10px}
+.api-example pre{margin:0;padding:12px;overflow:auto;background:#171A21;color:#F8FAFC;font-size:9px;line-height:1.55}
+@media(max-width:1120px){
+  .template-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .template-create-panel{grid-template-columns:1fr 1fr}
+}
+@media(max-width:800px){
+  .template-grid,.api-grid{grid-template-columns:1fr}
+  .template-create-panel{grid-template-columns:1fr}
+  .dataset-fields>div{grid-template-columns:1fr}
+}
