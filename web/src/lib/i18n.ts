@@ -18,8 +18,11 @@ export const translations = {
     'action.exportAll':'Exporter tout',
     'action.save':'Sauvegarder',
     'action.render':'Rendre',
+    'action.openStudio':'Ouvrir le studio',
     'status.loading':'Chargement…',
     'status.error':'Erreur',
+    'status.synced':'Synchronisé',
+    'status.unsaved':'Non sauvegardé',
     'label.brandKit':'Kit de marque',
     'label.templates':'Modèles',
     'label.library':'Bibliothèque',
@@ -28,7 +31,15 @@ export const translations = {
     'label.smartReframe':'Recadrage intelligent',
     'label.title':'Titre',
     'label.subtitle':'Sous-titre',
-    'label.logo':'Logo'
+    'label.logo':'Logo',
+    'copy.tagline':'Une image, tous les formats.',
+    'copy.product':'Studio de branding automatisé, self-hosted et pilotable par API.',
+    'copy.project':'Importe une image, applique ton identité puis décline-la automatiquement sur tous tes formats.',
+    'copy.templates':'Crée des modèles réutilisables et expose leurs variables à tes automatisations.',
+    'copy.library':'Réutilise tes images, logos et éléments de marque sans repartir de zéro.',
+    'copy.brand':'Centralise logos, couleurs et typographies pour garder chaque export cohérent.',
+    'copy.exports':'Retrouve les rendus et packages multi-formats générés pendant cette session.',
+    'copy.api':'Pilote les mêmes fonctions par OpenAPI, HTTP et agents.'
   },
   'zh-CN': {
     'nav.project':'项目',
@@ -47,8 +58,11 @@ export const translations = {
     'action.exportAll':'全部导出',
     'action.save':'保存',
     'action.render':'渲染',
+    'action.openStudio':'打开工作室',
     'status.loading':'加载中…',
     'status.error':'错误',
+    'status.synced':'已同步',
+    'status.unsaved':'未保存',
     'label.brandKit':'品牌工具包',
     'label.templates':'模板',
     'label.library':'素材库',
@@ -57,7 +71,15 @@ export const translations = {
     'label.smartReframe':'智能裁切',
     'label.title':'标题',
     'label.subtitle':'副标题',
-    'label.logo':'Logo'
+    'label.logo':'Logo',
+    'copy.tagline':'一张图，多种格式。',
+    'copy.product':'自托管、API 驱动的品牌自动化工作室。',
+    'copy.project':'导入一张图片，应用品牌元素，并自动生成适配各平台的视觉内容。',
+    'copy.templates':'创建可复用模板，并把变量开放给自动化工作流。',
+    'copy.library':'重复使用图片、Logo 与品牌素材，无需从零开始。',
+    'copy.brand':'集中管理 Logo、色彩与字体，确保每次导出都保持一致。',
+    'copy.exports':'查看本次会话生成的多格式渲染与打包文件。',
+    'copy.api':'通过 OpenAPI、HTTP 与智能体调用同样的功能。'
   }
 } as const;
 
