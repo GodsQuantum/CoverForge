@@ -571,6 +571,35 @@ fn safe_font_filename(raw: &str) -> anyhow::Result<String> {
     Ok(safe)
 }
 
+fn font_face_attributes(style: &str) -> (u16, &'static str) {
+    let compact = style.to_ascii_lowercase().replace([' ', '-', '_'], "");
+    let weight = if compact.contains("thin") {
+        100
+    } else if compact.contains("extralight") || compact.contains("ultralight") {
+        200
+    } else if compact.contains("light") {
+        300
+    } else if compact.contains("extrabold") || compact.contains("ultrabold") {
+        800
+    } else if compact.contains("semibold") || compact.contains("demibold") {
+        600
+    } else if compact.contains("bold") {
+        700
+    } else if compact.contains("black") || compact.contains("heavy") {
+        900
+    } else if compact.contains("medium") {
+        500
+    } else {
+        400
+    };
+    let font_style = if compact.contains("italic") || compact.contains("oblique") {
+        "italic"
+    } else {
+        "normal"
+    };
+    (weight, font_style)
+}
+
 fn font_catalog(font_dir: &PathBuf) -> anyhow::Result<Vec<Value>> {
     let mut seen = BTreeSet::new();
     let mut fonts = Vec::new();
@@ -623,9 +652,12 @@ fn font_catalog(font_dir: &PathBuf) -> anyhow::Result<Vec<Value>> {
         if !seen.insert(key) {
             continue;
         }
+        let (weight, font_style) = font_face_attributes(style);
         fonts.push(json!({
             "family": family,
             "style": style,
+            "weight": weight,
+            "font_style": font_style,
             "filename": filename,
             "source": source,
             "url": url
@@ -671,9 +703,12 @@ fn font_catalog(font_dir: &PathBuf) -> anyhow::Result<Vec<Value>> {
             if !seen.insert(key) {
                 continue;
             }
+            let (weight, font_style) = font_face_attributes(style);
             fonts.push(json!({
                 "family": family,
                 "style": style,
+                "weight": weight,
+                "font_style": font_style,
                 "filename": filename,
                 "source": "custom",
                 "url": format!("/font-files/custom/{filename}")
@@ -745,5 +780,13 @@ mod tests {
             keys.into_iter().collect::<Vec<_>>(),
             vec!["episode".to_string(), "title".to_string()]
         );
+    }
+
+    #[test]
+    fn font_face_style_maps_to_css_attributes() {
+        assert_eq!(font_face_attributes("Regular"), (400, "normal"));
+        assert_eq!(font_face_attributes("SemiBold"), (600, "normal"));
+        assert_eq!(font_face_attributes("Bold Italic"), (700, "italic"));
+        assert_eq!(font_face_attributes("Black"), (900, "normal"));
     }
 }

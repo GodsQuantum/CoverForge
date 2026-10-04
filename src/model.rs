@@ -93,6 +93,8 @@ pub enum Layer {
         font_family: String,
         #[serde(default = "default_font_weight")]
         font_weight: u16,
+        #[serde(default = "default_font_style")]
+        font_style: String,
         font_size: f32,
         #[serde(default)]
         auto_fit: bool,
@@ -161,6 +163,9 @@ fn default_font_family() -> String {
 }
 fn default_font_weight() -> u16 {
     700
+}
+fn default_font_style() -> String {
+    "normal".into()
 }
 fn default_text_color() -> String {
     "#ffffff".into()
@@ -240,12 +245,14 @@ mod tests {
                 name,
                 locked,
                 auto_fit,
+                font_style,
                 opacity,
                 ..
             } => {
                 assert!(name.is_empty());
                 assert!(!locked);
                 assert!(!auto_fit);
+                assert_eq!(font_style, "normal");
                 assert_eq!(opacity, 1.0);
             }
             _ => panic!("expected text layer"),

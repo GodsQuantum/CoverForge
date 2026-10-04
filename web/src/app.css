@@ -72,9 +72,9 @@ code,.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
 .tiny{width:25px;height:25px;border-radius:7px;color:var(--muted);font-size:10px}
 .icon-btn:hover,.tiny:hover{border-color:var(--accent);color:var(--accent)}
 
-.studio{display:grid;grid-template-columns:245px minmax(480px,1fr) 300px;gap:12px;padding:12px;align-items:start}
-.layers-panel,.inspector{position:sticky;top:80px;max-height:calc(100dvh - 92px);overflow:hidden;display:flex;flex-direction:column}
-.layer-list{display:flex;flex-direction:column;gap:5px;padding:8px;overflow:auto;min-height:0}
+.studio{display:grid;grid-template-columns:clamp(190px,16vw,240px) minmax(0,1fr) clamp(270px,22vw,340px);gap:10px;padding:10px;align-items:start}
+.layers-panel,.inspector{position:sticky;top:78px;max-height:none;overflow:visible;display:flex;flex-direction:column}
+.layer-list{display:flex;flex-direction:column;gap:5px;padding:8px;overflow:visible;min-height:0}
 .layer-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px;border:1px solid transparent;border-radius:9px;background:transparent;cursor:pointer;user-select:none}
 .layer-row:hover{background:#13201d}
 .layer-row.selected{background:var(--accent-soft);border-color:rgba(94,224,187,.24)}
@@ -91,13 +91,13 @@ code,.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
 .migration-card strong{font-size:11px;color:var(--warning)}
 .migration-card span{font-size:9px;color:var(--muted);line-height:1.45;margin-top:4px}
 
-.workspace-panel{min-width:0;display:flex;flex-direction:column;gap:9px}
-.workspace-toolbar{min-height:56px;padding:8px 10px;border:1px solid var(--line);border-radius:11px;background:#0b1210}
-.variable-strip{display:flex;gap:8px;overflow:auto}
-.variable-strip label{min-width:150px;display:flex;flex-direction:column;gap:4px}
+.workspace-panel{min-width:0;display:grid;grid-template-rows:auto minmax(320px,1fr) auto auto;gap:8px}
+.workspace-toolbar{padding:7px 9px;border:1px solid var(--line);border-radius:11px;background:#0b1210}
+.variable-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;overflow:visible}
+.variable-strip label{min-width:0;display:flex;flex-direction:column;gap:3px}
 .variable-strip label>span{font-size:9px;color:var(--muted-2);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .variable-input{min-height:33px;font-size:11px;padding:6px 8px}
-.workspace{min-height:calc(100dvh - 210px);display:flex;align-items:center;justify-content:center;overflow:auto;padding:26px;border:1px solid var(--line);border-radius:12px;background:
+.workspace{height:calc(100dvh - 205px);min-height:360px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:14px;border:1px solid var(--line);border-radius:12px;background:
   linear-gradient(45deg,#0a100f 25%,transparent 25%),
   linear-gradient(-45deg,#0a100f 25%,transparent 25%),
   linear-gradient(45deg,transparent 75%,#0a100f 75%),
@@ -120,7 +120,7 @@ background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
 .render-strip img{width:100%;height:90px;object-fit:contain;background:#050807;display:block}
 .render-strip span{display:block;padding:6px 7px;color:var(--muted);font-size:9px}
 
-.inspector-body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:11px}
+.inspector-body{padding:9px;overflow:visible;display:flex;flex-direction:column;gap:8px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field-label,.field>label{font-size:10px;font-weight:800;color:#bfd0cb}
 .help{font-size:9px;color:var(--muted-2);line-height:1.45}
@@ -133,6 +133,18 @@ background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
 .mini-field>span{font-size:9px;color:var(--muted-2);font-weight:800}
 .mini-field input,.mini-field select{min-height:34px;padding:5px 7px;font-size:10px}
 .mini-field input[type="color"]{padding:3px}
+.range-grid{display:grid;grid-template-columns:1fr;gap:5px}
+.range-field{display:grid;grid-template-columns:58px minmax(70px,1fr) 58px 28px;align-items:center;gap:6px;min-width:0}
+.range-field>span{font-size:9px;color:var(--muted-2);font-weight:850}
+.range-field>em{font-style:normal;font-size:8px;color:var(--muted-2)}
+.range-field input[type="range"]{width:100%;min-width:0;accent-color:var(--accent)}
+.range-field .range-number{min-height:28px;height:28px;padding:3px 5px;border:1px solid #344740;border-radius:7px;background:#09100e;color:var(--text);font-size:9px;text-align:right}
+.compact-ranges{gap:4px}
+.font-pickers{align-items:end}
+.advanced-block{border:1px solid var(--line);border-radius:9px;background:#0b1210}
+.advanced-block>summary{cursor:pointer;padding:8px 9px;color:var(--muted);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;user-select:none}
+.advanced-block[open]>summary{border-bottom:1px solid var(--line);color:var(--accent)}
+.advanced-content{display:flex;flex-direction:column;gap:7px;padding:8px}
 .toggle-row{display:flex;gap:12px;flex-wrap:wrap}
 .toggle-row label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px}
 .empty-inspector{padding:18px;color:var(--muted-2);font-size:11px;line-height:1.55}
@@ -188,6 +200,30 @@ background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
   .font-grid{grid-template-columns:1fr}
   .fonts-toolbar{grid-template-columns:1fr}
   .grid.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-height:880px) and (min-width:1081px){
+  .topbar{min-height:58px;padding:8px 14px}
+  .studio{padding:8px;gap:8px}
+  .layers-panel,.inspector{top:66px}
+  .panel-head{min-height:42px;padding:7px 9px}
+  .layer-row{padding:6px}
+  .layer-type{width:25px;height:25px}
+  .workspace{height:calc(100dvh - 176px);min-height:320px;padding:10px}
+  .workspace-toolbar{padding:5px 7px}
+  .workspace-status{min-height:30px}
+  .inspector-body{padding:7px;gap:6px}
+  .input,.select,.textarea,.mini-field input,.mini-field select{min-height:32px;padding:5px 7px}
+  .compact-area{min-height:54px}
+  .field{gap:3px}
+  .subhead{padding-top:5px}
+  .range-field{grid-template-columns:52px minmax(60px,1fr) 54px 24px;gap:4px}
+  .advanced-block>summary{padding:6px 8px}
+}
+@media(max-height:700px) and (min-width:1081px){
+  .workspace{height:calc(100dvh - 160px);min-height:280px}
+  .variable-strip label>span,.help{display:none}
+  .layer-copy small{display:none}
+  .toggle-row{gap:8px}
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}

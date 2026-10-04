@@ -264,6 +264,7 @@ impl Renderer {
                     text,
                     font_family,
                     font_weight,
+                    font_style,
                     font_size,
                     auto_fit,
                     min_font_size,
@@ -325,7 +326,7 @@ impl Renderer {
                     } else {
                         String::new()
                     };
-                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" opacity="{}" font-family="{}" font-weight="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), clamp(*opacity), xml(font_family), font_weight));
+                    body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" opacity="{}" font-family="{}" font-weight="{}" font-style="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), clamp(*opacity), xml(font_family), font_weight, xml(font_style)));
                     for (i, line) in lines.iter().enumerate() {
                         let dy = if i == 0 { 0.0 } else { size * line_height };
                         body.push_str(&format!(

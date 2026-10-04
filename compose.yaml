@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: coverforge:0.4.2
+    image: coverforge:0.5.0
     container_name: coverforge
     restart: unless-stopped
     user: "1000:1000"
