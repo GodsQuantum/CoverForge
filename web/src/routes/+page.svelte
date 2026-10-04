@@ -11,7 +11,7 @@
   import SourceImagePanel from '../lib/components/SourceImagePanel.svelte';
   import TemplatesPanel from '../lib/components/TemplatesPanel.svelte';
   import { applyReframeToTemplate, normalizeSelectedFormats, toggleFormatSelection } from '../lib/format-state';
-  import { tr, type Locale } from '../lib/i18n';
+  import { tr, ui, type Locale } from '../lib/i18n';
   import { api } from '../lib/api';
   import type {
     BrandStyle,
@@ -97,22 +97,35 @@
     const raw = String(layer?.text || layer?.source || '');
     const variable = raw.match(/^\s*\{\{([a-zA-Z0-9_-]+)\}\}\s*$/)?.[1]?.toLowerCase();
     const friendly:Record<string,string> = {
-      title:'Titre',
-      subtitle:'Sous-titre',
-      eyebrow:'Numéro / eyebrow',
-      episode:'Numéro d’épisode',
-      episode_number:'Numéro d’épisode',
-      number:'Numéro',
-      guest:'Invité',
+      title:ui(locale,'Titre','Title','标题'),
+      subtitle:ui(locale,'Sous-titre','Subtitle','副标题'),
+      eyebrow:ui(locale,'Numéro / sous-titre','Number / subtitle','编号 / 副标题'),
+      episode:ui(locale,'Numéro d’épisode','Episode number','期数'),
+      episode_number:ui(locale,'Numéro d’épisode','Episode number','期数'),
+      number:ui(locale,'Numéro','Number','编号'),
+      guest:ui(locale,'Invité','Guest','嘉宾'),
       logo:'Logo',
-      background:'Fond',
+      background:ui(locale,'Fond','Background','背景'),
       keyart:'Key art'
     };
     if (variable && friendly[variable]) return friendly[variable];
-    const id = String(layer?.id || layer?.type || 'Calque')
+    const id = String(layer?.id || layer?.type || ui(locale,'Calque','Layer','图层'))
       .replace(/[_-]+/g,' ')
       .replace(/\b\w/g,(m:string)=>m.toUpperCase());
-    return id || 'Calque';
+    return id || ui(locale,'Calque','Layer','图层');
+  }
+
+  function displayLayerName(layer:Layer):string {
+    const standard:Record<string,string> = {
+      background:ui(locale,'Fond','Background','背景'),
+      title:ui(locale,'Titre','Title','标题'),
+      subtitle:ui(locale,'Sous-titre','Subtitle','副标题'),
+      eyebrow:ui(locale,'Numéro / sous-titre','Number / subtitle','编号 / 副标题'),
+      episode:ui(locale,'Numéro d’épisode','Episode number','期数'),
+      logo:'Logo',
+      badge:ui(locale,'Badge','Badge','徽章')
+    };
+    return standard[layer.id] || layer.name || layer.id;
   }
 
   function normalizeLayer(layer:any):Layer {
@@ -345,7 +358,7 @@
     error = '';
     try {
       const data = await api.uploadFont(file);
-      fontStatus = 'Ajoutée : ' + data.family + ' · ' + data.style;
+      fontStatus = ui(locale,'Ajoutée : ','Added: ','已添加：') + data.family + ' · ' + data.style;
       await loadFonts();
       input.value = '';
     } catch (e) {
@@ -361,7 +374,7 @@
     fontStatus = '';
     try {
       await api.deleteFont(f.filename);
-      fontStatus = 'Supprimée : ' + f.family;
+      fontStatus = ui(locale,'Supprimée : ','Deleted: ','已删除：') + f.family;
       await loadFonts();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -630,7 +643,7 @@
       templateData = parsed;
       templateJson = JSON.stringify(parsed, null, 2);
       dirty = false;
-      templateStatus = 'Sauvegardé';
+      templateStatus = ui(locale,'Sauvegardé','Saved','已保存');
       resetHistory();
       await rebuildCanvas();
     } catch (e) {
@@ -1086,19 +1099,28 @@
     }
   }
 
+  function changeLocale(next:Locale) {
+    locale = next;
+    if (typeof document !== 'undefined') document.documentElement.lang = next === 'zh-CN' ? 'zh-CN' : next;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('coverforge.locale', next);
+  }
+
   function viewMeta(view:View):{title:string;copy:string} {
     switch (view) {
-      case 'templates': return { title: tr('fr','nav.templates') + ' / ' + tr('zh-CN','nav.templates'), copy: tr(locale,'copy.templates') };
-      case 'library': return { title: tr('fr','nav.library') + ' / ' + tr('zh-CN','nav.library'), copy: tr(locale,'copy.library') };
-      case 'brand': return { title: tr('fr','nav.brand') + ' / ' + tr('zh-CN','nav.brand'), copy: tr(locale,'copy.brand') };
-      case 'exports': return { title: tr('fr','nav.exports') + ' / ' + tr('zh-CN','nav.exports'), copy: tr(locale,'copy.exports') };
-      case 'api': return { title: tr('fr','nav.api') + ' / ' + tr('zh-CN','nav.api'), copy: tr(locale,'copy.api') };
+      case 'templates': return { title: tr(locale,'nav.templates'), copy: tr(locale,'copy.templates') };
+      case 'library': return { title: tr(locale,'nav.library'), copy: tr(locale,'copy.library') };
+      case 'brand': return { title: tr(locale,'nav.brand'), copy: tr(locale,'copy.brand') };
+      case 'exports': return { title: tr(locale,'nav.exports'), copy: tr(locale,'copy.exports') };
+      case 'api': return { title: tr(locale,'nav.api'), copy: tr(locale,'copy.api') };
       default: return { title:'CoverForge', copy:tr(locale,'copy.product') };
     }
   }
 
   onMount(() => {
     let disposed = false;
+    const storedLocale = localStorage.getItem('coverforge.locale');
+    if (storedLocale === 'fr' || storedLocale === 'en' || storedLocale === 'zh-CN') changeLocale(storedLocale);
+    else changeLocale(locale);
     void (async () => {
       fabricLib = await import('fabric');
       if (disposed) return;
@@ -1124,7 +1146,7 @@
   <meta name="description" content="CoverForge — self-hosted branding automation studio and deterministic multi-format renderer" />
 </svelte:head>
 
-<AppShell {activeView} {locale} {dirty} onNavigate={(view) => void switchView(view)} onLocale={(next) => locale = next}>
+<AppShell {activeView} {locale} {dirty} onNavigate={(view) => void switchView(view)} onLocale={changeLocale}>
   <main class="app-main">
     {#if activeView === 'project' || activeView === 'composer'}
       <ProjectHeader {locale} {template} />
@@ -1149,12 +1171,12 @@
         <button class="btn compact" onclick={() => setZoom(zoom-0.1)}>−</button>
         <span class="zoom-readout">{Math.round(zoom*100)}%</span>
         <button class="btn compact" onclick={() => setZoom(zoom+0.1)}>+</button>
-        <button class="btn compact" class:active-tool={showGrid} onclick={() => showGrid=!showGrid}>Grille</button>
-        <button class="btn compact" class:active-tool={showSafeArea} onclick={() => showSafeArea=!showSafeArea}>Safe</button>
-        <button class="btn compact utility-tab" onclick={() => void switchView('fonts')}>Polices / 字体</button>
+        <button class="btn compact" class:active-tool={showGrid} onclick={() => showGrid=!showGrid}>{ui(locale,'Grille','Grid','网格')}</button>
+        <button class="btn compact" class:active-tool={showSafeArea} onclick={() => showSafeArea=!showSafeArea}>{ui(locale,'Zone sûre','Safe area','安全区域')}</button>
+        <button class="btn compact utility-tab" onclick={() => void switchView('fonts')}>{ui(locale,'Polices','Fonts','字体')}</button>
         <button class="btn compact utility-tab" onclick={() => void switchView('json')}>JSON</button>
         <button class="btn primary" onclick={saveTemplate} disabled={savingTemplate || !template || !dirty}>
-          {savingTemplate ? 'Sauvegarde…' : dirty ? 'Sauvegarder' : 'Sauvegardé'}
+          {savingTemplate ? ui(locale,'Sauvegarde…','Saving…','保存中…') : dirty ? tr(locale,'action.save') : ui(locale,'Sauvegardé','Saved','已保存')}
         </button>
       </div>
     </header>
@@ -1175,6 +1197,7 @@
             onFocalChange={setGlobalFocal}
           />
           <MultiFormatGrid
+            {locale}
             template={templateData}
             sourceUrl={sourceAsset?.url || ''}
             {selectedFormats}
@@ -1190,18 +1213,18 @@
       <section class="studio">
         <aside class="layers-panel panel">
           <div class="panel-head">
-            <div><strong>Calques</strong><span>{currentLayers().length}</span></div>
+            <div><strong>{tr(locale,'action.layers')}</strong><span>{currentLayers().length}</span></div>
             <div class="mini-actions">
-              <button class="icon-btn" title="Ajouter texte" onclick={() => addLayer('text')}>T</button>
-              <button class="icon-btn" title="Ajouter image" onclick={() => addLayer('image')}>▧</button>
-              <button class="icon-btn" title="Ajouter rectangle" onclick={() => addLayer('rect')}>□</button>
+              <button class="icon-btn" title={ui(locale,'Ajouter du texte','Add text','添加文字')} onclick={() => addLayer('text')}>T</button>
+              <button class="icon-btn" title={ui(locale,'Ajouter une image','Add image','添加图片')} onclick={() => addLayer('image')}>▧</button>
+              <button class="icon-btn" title={ui(locale,'Ajouter un rectangle','Add rectangle','添加矩形')} onclick={() => addLayer('rect')}>□</button>
             </div>
           </div>
 
           {#if templateData && !Object.keys(templateData.formats || {}).length}
             <button class="migration-card" onclick={maybeMigrateLegacyFormats}>
-              <strong>Layouts encore liés</strong>
-              <span>Convertir vers des calques indépendants par format pour placer chaque élément différemment.</span>
+              <strong>{ui(locale,'Layouts encore liés','Layouts still linked','布局仍然关联')}</strong>
+              <span>{ui(locale,'Convertir vers des calques indépendants par format pour placer chaque élément différemment.','Convert to independent layers per format so every element can be positioned separately.','转换为每种格式独立的图层，以便分别定位每个元素。')}</span>
             </button>
           {/if}
 
@@ -1210,22 +1233,22 @@
               <div role="button" tabindex="0" class:selected={selectedLayerId===layer.id} class:muted={layer.visible===false} class="layer-row" onclick={() => selectLayer(layer.id)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selectLayer(layer.id); }}>
                 <span class="layer-type">{layer.type==='text'?'T':layer.type==='image'?'▧':'□'}</span>
                 <span class="layer-copy">
-                  <strong>{layer.name || layer.id}</strong>
+                  <strong>{displayLayerName(layer)}</strong>
                   <small>{layer.id}</small>
                 </span>
                 <span class="layer-controls">
-                  <button class="tiny" title="Visible" onclick={(e) => {e.stopPropagation();toggleLayerVisible(layer)}}>{layer.visible===false?'○':'●'}</button>
-                  <button class="tiny" title="Verrouiller" onclick={(e) => {e.stopPropagation();toggleLayerLocked(layer)}}>{layer.locked?'🔒':'◇'}</button>
+                  <button class="tiny" title={ui(locale,'Visible','Visible','显示')} onclick={(e) => {e.stopPropagation();toggleLayerVisible(layer)}}>{layer.visible===false?'○':'●'}</button>
+                  <button class="tiny" title={ui(locale,'Verrouiller','Lock','锁定')} onclick={(e) => {e.stopPropagation();toggleLayerLocked(layer)}}>{layer.locked?'🔒':'◇'}</button>
                 </span>
               </div>
             {/each}
           </div>
 
           <div class="layer-footer">
-            <button class="btn compact" onclick={() => moveLayer(1)} title="Monter">↑</button>
-            <button class="btn compact" onclick={() => moveLayer(-1)} title="Descendre">↓</button>
-            <button class="btn compact" onclick={duplicateSelectedLayer} disabled={!selectedLayerId}>Dupliquer</button>
-            <button class="btn compact danger" onclick={deleteSelectedLayer} disabled={!selectedLayerId}>Supprimer</button>
+            <button class="btn compact" onclick={() => moveLayer(1)} title={ui(locale,'Monter','Move up','上移')}>↑</button>
+            <button class="btn compact" onclick={() => moveLayer(-1)} title={ui(locale,'Descendre','Move down','下移')}>↓</button>
+            <button class="btn compact" onclick={duplicateSelectedLayer} disabled={!selectedLayerId}>{ui(locale,'Dupliquer','Duplicate','复制')}</button>
+            <button class="btn compact danger" onclick={deleteSelectedLayer} disabled={!selectedLayerId}>{ui(locale,'Supprimer','Delete','删除')}</button>
           </div>
         </aside>
 
@@ -1235,7 +1258,7 @@
               {#each collectVariableNames() as key}
                 <label>
                   <span>{key}</span>
-                  <input class="input variable-input" value={variables[key] ?? ''} oninput={(e) => onVariableInput(key,(e.currentTarget as HTMLInputElement).value)} placeholder={key==='background'||key==='logo'?'/srv/storage/...':'Valeur de test'} />
+                  <input class="input variable-input" value={variables[key] ?? ''} oninput={(e) => onVariableInput(key,(e.currentTarget as HTMLInputElement).value)} placeholder={key==='background'||key==='logo'?'/srv/storage/...':ui(locale,'Valeur de test','Test value','测试值')} />
                 </label>
               {/each}
             </div>
@@ -1251,10 +1274,10 @@
 
           <div class="workspace-status">
             <span>{currentCanvasDef()?.width || 0} × {currentCanvasDef()?.height || 0}</span>
-            <span>Format : {activeFormat}</span>
-            <span>Preview interactif Fabric.js · rendu final Rust/resvg</span>
+            <span>{ui(locale,'Format','Format','格式')} : {activeFormat}</span>
+            <span>{ui(locale,'Aperçu interactif Fabric.js · rendu final Rust/resvg','Interactive Fabric.js preview · final Rust/resvg render','Fabric.js 交互预览 · Rust/resvg 最终渲染')}</span>
             <button class="btn compact" onclick={renderExact} disabled={rendering || !templateData}>
-              {rendering?'Rendu…':'Vérifier en Rust'}
+              {rendering?ui(locale,'Rendu…','Rendering…','渲染中…'):ui(locale,'Vérifier en Rust','Verify in Rust','用 Rust 验证')}
             </button>
           </div>
 
@@ -1268,6 +1291,7 @@
         </section>
 
         <LayerInspector
+          {locale}
           layer={selectedLayer()}
           {fonts}
           onValue={(key,value,rebuild=true)=>setLayerValue(key,value,rebuild)}
@@ -1294,6 +1318,7 @@
 
     {:else if activeView === 'library'}
       <AssetLibrary
+        {locale}
         assets={sessionAssets}
         brand={templateData?.brand || {}}
         onBackground={useSessionBackground}
@@ -1303,18 +1328,20 @@
     {:else if activeView === 'brand'}
       {#if templateData}
         <BrandKitPanel
+          {locale}
           brand={templateData.brand || {}}
           {fonts}
           onChange={updateBrand}
           onAssetUploaded={rememberAsset}
         />
       {:else}
-        <section class="page-section"><div class="panel empty-library">Charge un modèle pour éditer son Brand Kit / 请先加载模板</div></section>
+        <section class="page-section"><div class="panel empty-library">{ui(locale,'Charge un modèle pour éditer son Kit de marque','Load a template to edit its Brand kit','请先加载模板以编辑品牌工具包')}</div></section>
       {/if}
 
     {:else if activeView === 'exports'}
       {#if templateData}
         <ExportPanel
+          {locale}
           templateId={template}
           template={templateData}
           {dirty}
@@ -1325,18 +1352,18 @@
           onPackage={rememberExport}
         />
       {:else}
-        <section class="page-section"><div class="panel empty-library">Charge un modèle pour exporter / 请先加载模板</div></section>
+        <section class="page-section"><div class="panel empty-library">{ui(locale,'Charge un modèle pour exporter','Load a template to export','请先加载模板以导出')}</div></section>
       {/if}
 
     {:else if activeView === 'fonts'}
       <section class="page-section">
         <header class="section-head">
-          <div><span class="eyebrow">TYPOGRAPHIE</span><h1>Bibliothèque de polices</h1><p>{fonts.length} faces disponibles côté renderer.</p></div>
+          <div><span class="eyebrow">{ui(locale,'TYPOGRAPHIE','TYPOGRAPHY','字体')}</span><h1>{ui(locale,'Bibliothèque de polices','Font library','字体库')}</h1><p>{fonts.length} {ui(locale,'faces disponibles côté renderer.','font faces available to the renderer.','个字体样式可用于渲染器。')}</p></div>
           {#if fontStatus}<span class="status-pill">{fontStatus}</span>{/if}
         </header>
         <div class="fonts-toolbar panel">
-          <input class="input" bind:value={fontQuery} placeholder="Rechercher une police…" />
-          <label class="btn file-btn">Ajouter une police<input type="file" accept=".ttf,.otf,.ttc,.otc" onchange={uploadFont} disabled={uploadingFont} /></label>
+          <input class="input" bind:value={fontQuery} placeholder={ui(locale,'Rechercher une police…','Search fonts…','搜索字体…')} />
+          <label class="btn file-btn">{ui(locale,'Ajouter une police','Add a font','添加字体')}<input type="file" accept=".ttf,.otf,.ttc,.otc" onchange={uploadFont} disabled={uploadingFont} /></label>
         </div>
         <div class="font-grid">
           {#each filteredFonts() as f}
@@ -1344,7 +1371,7 @@
               <div class="font-sample" style={previewStyle(f)}>Aa Bb Cc 123 — CoverForge</div>
               <div class="row between">
                 <div><strong>{f.family}</strong><span>{f.style || 'Regular'} · {f.source}</span></div>
-                {#if f.source === 'custom'}<button class="btn compact danger" onclick={() => deleteFont(f)}>Supprimer</button>{/if}
+                {#if f.source === 'custom'}<button class="btn compact danger" onclick={() => deleteFont(f)}>{ui(locale,'Supprimer','Delete','删除')}</button>{/if}
               </div>
             </article>
           {/each}
@@ -1354,10 +1381,10 @@
     {:else if activeView === 'json'}
       <section class="page-section json-page">
         <header class="section-head">
-          <div><span class="eyebrow">SOURCE DE VÉRITÉ / 数据源</span><h1>JSON du modèle / 模板 JSON</h1><p>Lisible, versionnable et pilotable par API ou agents.</p></div>
+          <div><span class="eyebrow">{ui(locale,'SOURCE DE VÉRITÉ','SOURCE OF TRUTH','数据源')}</span><h1>{ui(locale,'JSON du modèle','Template JSON','模板 JSON')}</h1><p>{ui(locale,'Lisible, versionnable et pilotable par API ou agents.','Readable, versionable and controllable through the API or agents.','可读、可版本控制，并可通过 API 或智能体驱动。')}</p></div>
           <div class="row">
-            <button class="btn" onclick={applyJson}>Appliquer au studio</button>
-            <button class="btn primary" onclick={saveTemplate} disabled={!dirty || savingTemplate}>Sauvegarder</button>
+            <button class="btn" onclick={applyJson}>{ui(locale,'Appliquer au studio','Apply to studio','应用到工作室')}</button>
+            <button class="btn primary" onclick={saveTemplate} disabled={!dirty || savingTemplate}>{tr(locale,'action.save')}</button>
           </div>
         </header>
         <textarea class="textarea mono json-editor" bind:value={templateJson} spellcheck="false" oninput={() => dirty=true}></textarea>
@@ -1380,7 +1407,7 @@
         <span class="eyebrow">COVERFORGE</span>
         <h1>{meta.title}</h1>
         <p>{meta.copy}</p>
-        <span class="placeholder-note">La vue fonctionnelle arrive dans les étapes suivantes de v0.6 / 此功能将在 v0.6 后续步骤中启用</span>
+        <span class="placeholder-note">{ui(locale,'Cette vue est en cours de finalisation.','This view is being finalized.','此视图正在完善中。')}</span>
       </section>
     {/if}
   </main>

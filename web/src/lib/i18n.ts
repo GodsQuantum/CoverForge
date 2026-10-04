@@ -1,4 +1,4 @@
-export type Locale = 'fr' | 'zh-CN';
+export type Locale = 'fr' | 'en' | 'zh-CN';
 
 export const translations = {
   fr: {
@@ -40,6 +40,46 @@ export const translations = {
     'copy.brand':'Centralise logos, couleurs et typographies pour garder chaque export cohérent.',
     'copy.exports':'Retrouve les rendus et packages multi-formats générés pendant cette session.',
     'copy.api':'Pilote les mêmes fonctions par OpenAPI, HTTP et agents.'
+  },
+  en: {
+    'nav.project':'Project',
+    'nav.templates':'Templates',
+    'nav.library':'Library',
+    'nav.brand':'Brand kit',
+    'nav.exports':'Exports',
+    'nav.api':'API',
+    'action.import':'Import',
+    'action.replaceImage':'Replace image',
+    'action.smartCrop':'Smart Reframe',
+    'action.resetCrop':'Reset crop',
+    'action.layers':'Layers',
+    'action.formats':'Formats',
+    'action.exportSelected':'Export selected',
+    'action.exportAll':'Export all',
+    'action.save':'Save',
+    'action.render':'Render',
+    'action.openStudio':'Open studio',
+    'status.loading':'Loading…',
+    'status.error':'Error',
+    'status.synced':'Synced',
+    'status.unsaved':'Unsaved',
+    'label.brandKit':'Brand kit',
+    'label.templates':'Templates',
+    'label.library':'Library',
+    'label.api':'API',
+    'label.sourceImage':'Source image',
+    'label.smartReframe':'Smart Reframe',
+    'label.title':'Title',
+    'label.subtitle':'Subtitle',
+    'label.logo':'Logo',
+    'copy.tagline':'One image, every format.',
+    'copy.product':'Self-hosted, API-first branding automation studio.',
+    'copy.project':'Import one image, apply your identity, then adapt it automatically to every format.',
+    'copy.templates':'Create reusable templates and expose their variables to your automations.',
+    'copy.library':'Reuse images, logos and brand assets without starting over.',
+    'copy.brand':'Keep logos, colors and typography centralized for consistent exports.',
+    'copy.exports':'Access multi-format renders and packages created during this session.',
+    'copy.api':'Drive the same functions through OpenAPI, HTTP and agents.'
   },
   'zh-CN': {
     'nav.project':'项目',
@@ -87,4 +127,10 @@ export type TranslationKey = keyof typeof translations.fr;
 
 export function tr(locale:Locale, key:TranslationKey):string {
   return translations[locale][key];
+}
+
+export function ui(locale:Locale, fr:string, en:string, zh:string):string {
+  if (locale === 'fr') return fr;
+  if (locale === 'en') return en;
+  return zh;
 }
