@@ -101,6 +101,16 @@ Le preview d'un modèle non sauvegardé utilise exactement le renderer Rust de p
 POST /v1/render/preview
 ```
 
+Le workflow de branding complet est également exposé par API :
+
+```text
+POST /v1/assets
+POST /v1/reframe
+POST /v1/render/package
+```
+
+Le package ZIP contient les sorties sélectionnées et un `manifest.json`. Les uploads sont stockés sous le répertoire de sortie CoverForge, qui reste une racine d'asset sûre sans élargir l'accès au reste du système de fichiers.
+
 ## Compatibilité des émissions existantes
 
 Les modèles historiques `cf`, `cp`, `dpafm`, `lcfp`, `arezki` et `ur2w` restent des modèles CoverForge valides. Ils représentent simplement des brand kits spécialisés pour des émissions.
