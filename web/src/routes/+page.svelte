@@ -1,5 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import AppShell from '../lib/components/AppShell.svelte';
+  import ProjectHeader from '../lib/components/ProjectHeader.svelte';
+  import { tr, type Locale } from '../lib/i18n';
   import { api } from '../lib/api';
   import type {
     CanvasDef,
@@ -13,7 +16,8 @@
     View
   } from '../lib/types';
 
-  let activeView = $state<View>('composer');
+  let activeView = $state<View>('project');
+  let locale = $state<Locale>('fr');
   let templates = $state<string[]>([]);
   let template = $state('');
   let templateData = $state<TemplateData|null>(null);
@@ -301,7 +305,7 @@
     if (typeof document !== 'undefined' && 'fonts' in document) {
       await document.fonts.ready;
     }
-    if (activeView === 'composer') await rebuildCanvas();
+    if (activeView === 'composer' || activeView === 'project') await rebuildCanvas();
   }
 
   async function uploadFont(event:Event) {
@@ -463,7 +467,7 @@
     savingTemplate = true;
     try {
       const parsed = normalizeTemplate(JSON.parse(templateJson));
-      if (parsed.id !== template) throw new Error('Show style id must stay "' + template + '"');
+      if (parsed.id !== template) throw new Error('Template id must stay "' + template + '"');
       await api.putTemplate(template, parsed);
       templateData = parsed;
       templateJson = JSON.stringify(parsed, null, 2);
@@ -684,7 +688,7 @@
       const changed = Math.abs(nextW-workspaceWidth) > 2 || Math.abs(nextH-workspaceHeight) > 2;
       workspaceWidth = nextW;
       workspaceHeight = nextH;
-      if (changed && activeView === 'composer') void rebuildCanvas();
+      if (changed && (activeView === 'composer' || activeView === 'project')) void rebuildCanvas();
     };
     update();
     workspaceObserver = new ResizeObserver(update);
@@ -700,7 +704,7 @@
       fabricCanvas = null;
     }
     activeView = view;
-    if (view === 'composer') {
+    if (view === 'composer' || view === 'project') {
       await tick();
       initFabric();
       attachWorkspaceObserver();
@@ -723,8 +727,8 @@
       lockMovementY:layer.locked === true,
       transparentCorners:false,
       cornerStyle:'circle',
-      cornerColor:'#5ee0bb',
-      borderColor:'#5ee0bb',
+      cornerColor:'#FF7A00',
+      borderColor:'#FF7A00',
       cornerSize:10,
       padding:2
     };
@@ -804,10 +808,10 @@
           }
           obj = image;
         } catch {
-          obj = new Rect({...common,width,height,fill:'#1c2c29',stroke:'#5ee0bb',strokeDashArray:[8,6]});
+          obj = new Rect({...common,width,height,fill:'#2A1B10',stroke:'#FF7A00',strokeDashArray:[8,6]});
         }
       } else {
-        obj = new Rect({...common,width,height,fill:'#1c2c29',stroke:'#5ee0bb',strokeDashArray:[8,6]});
+        obj = new Rect({...common,width,height,fill:'#2A1B10',stroke:'#FF7A00',strokeDashArray:[8,6]});
       }
     }
     obj.cfId = layer.id;
@@ -921,6 +925,17 @@
     }
   }
 
+  function viewMeta(view:View):{title:string;copy:string} {
+    switch (view) {
+      case 'templates': return { title: tr('fr','nav.templates') + ' / ' + tr('zh-CN','nav.templates'), copy: tr(locale,'copy.templates') };
+      case 'library': return { title: tr('fr','nav.library') + ' / ' + tr('zh-CN','nav.library'), copy: tr(locale,'copy.library') };
+      case 'brand': return { title: tr('fr','nav.brand') + ' / ' + tr('zh-CN','nav.brand'), copy: tr(locale,'copy.brand') };
+      case 'exports': return { title: tr('fr','nav.exports') + ' / ' + tr('zh-CN','nav.exports'), copy: tr(locale,'copy.exports') };
+      case 'api': return { title: tr('fr','nav.api') + ' / ' + tr('zh-CN','nav.api'), copy: tr(locale,'copy.api') };
+      default: return { title:'CoverForge', copy:tr(locale,'copy.product') };
+    }
+  }
+
   onMount(() => {
     let disposed = false;
     void (async () => {
@@ -945,39 +960,15 @@
 
 <svelte:head>
   <title>CoverForge Studio</title>
-  <meta name="description" content="API-first visual cover editor and deterministic compositor" />
+  <meta name="description" content="CoverForge — self-hosted branding automation studio and deterministic multi-format renderer" />
 </svelte:head>
 
-<div class="app-shell">
-  <aside class="app-rail">
-    <div class="brand-lockup">
-      <div class="brand-mark">CF</div>
-      <div>
-        <div class="brand-title">CoverForge</div>
-        <div class="brand-sub">Studio · API · renderer</div>
-      </div>
-    </div>
-
-    <nav class="nav-list">
-      <button class:active={activeView === 'composer'} class="nav-button" onclick={() => void switchView('composer')}>
-        <span class="nav-icon">◫</span><span class="nav-label">Composer</span>
-      </button>
-      <button class:active={activeView === 'fonts'} class="nav-button" onclick={() => void switchView('fonts')}>
-        <span class="nav-icon">Aa</span><span class="nav-label">Fonts</span>
-      </button>
-      <button class:active={activeView === 'json'} class="nav-button" onclick={() => void switchView('json')}>
-        <span class="nav-icon">JS</span><span class="nav-label">JSON</span>
-      </button>
-    </nav>
-
-    <div class="rail-spacer"></div>
-    <div class="rail-note">
-      <strong>{dirty ? '● Non sauvegardé' : '✓ Synchronisé'}</strong>
-      <span>Ctrl+S sauvegarder · Ctrl+Z annuler · Ctrl+D dupliquer · Suppr effacer</span>
-    </div>
-  </aside>
-
+<AppShell {activeView} {locale} {dirty} onNavigate={(view) => void switchView(view)} onLocale={(next) => locale = next}>
   <main class="app-main">
+    {#if activeView === 'project' || activeView === 'composer'}
+      <ProjectHeader {locale} {template} />
+    {/if}
+
     <header class="topbar">
       <div class="topbar-left">
         <select class="select compact-select" bind:value={template} onchange={onTemplateChange}>
@@ -999,6 +990,8 @@
         <button class="btn compact" onclick={() => setZoom(zoom+0.1)}>+</button>
         <button class="btn compact" class:active-tool={showGrid} onclick={() => showGrid=!showGrid}>Grille</button>
         <button class="btn compact" class:active-tool={showSafeArea} onclick={() => showSafeArea=!showSafeArea}>Safe</button>
+        <button class="btn compact utility-tab" onclick={() => void switchView('fonts')}>Polices / 字体</button>
+        <button class="btn compact utility-tab" onclick={() => void switchView('json')}>JSON</button>
         <button class="btn primary" onclick={saveTemplate} disabled={savingTemplate || !template || !dirty}>
           {savingTemplate ? 'Sauvegarde…' : dirty ? 'Sauvegarder' : 'Sauvegardé'}
         </button>
@@ -1007,7 +1000,7 @@
 
     {#if error}<div class="global-error">{error}</div>{/if}
 
-    {#if activeView === 'composer'}
+    {#if activeView === 'project' || activeView === 'composer'}
       <section class="studio">
         <aside class="layers-panel panel">
           <div class="panel-head">
@@ -1301,10 +1294,10 @@
         </div>
       </section>
 
-    {:else}
+    {:else if activeView === 'json'}
       <section class="page-section json-page">
         <header class="section-head">
-          <div><span class="eyebrow">SOURCE DE VÉRITÉ</span><h1>JSON du show</h1><p>Lisible, versionnable, pilotable par API et agents.</p></div>
+          <div><span class="eyebrow">SOURCE DE VÉRITÉ / 数据源</span><h1>JSON du modèle / 模板 JSON</h1><p>Lisible, versionnable et pilotable par API ou agents.</p></div>
           <div class="row">
             <button class="btn" onclick={applyJson}>Appliquer au studio</button>
             <button class="btn primary" onclick={saveTemplate} disabled={!dirty || savingTemplate}>Sauvegarder</button>
@@ -1313,9 +1306,9 @@
         <textarea class="textarea mono json-editor" bind:value={templateJson} spellcheck="false" oninput={() => dirty=true}></textarea>
         <div class="json-help">
           <code>GET /openapi.json</code>
-          <code>GET /v1/templates/{'{show}'}</code>
-          <code>PUT /v1/templates/{'{show}'}</code>
-          <code>GET /v1/templates/{'{show}'}/dataset</code>
+          <code>GET /v1/templates/{'{id}'}</code>
+          <code>PUT /v1/templates/{'{id}'}</code>
+          <code>GET /v1/templates/{'{id}'}/dataset</code>
           <code>POST /v1/render</code>
           <code>POST /v1/render/preview</code>
           <code>POST /v1/render/batch</code>
@@ -1323,6 +1316,15 @@
           <code>GET /v1/asset?path=…</code>
         </div>
       </section>
+    {:else}
+      {@const meta = viewMeta(activeView)}
+      <section class="page-section product-placeholder">
+        <div class="placeholder-orbit"><img src="/favicon.svg" alt="" /></div>
+        <span class="eyebrow">COVERFORGE</span>
+        <h1>{meta.title}</h1>
+        <p>{meta.copy}</p>
+        <span class="placeholder-note">La vue fonctionnelle arrive dans les étapes suivantes de v0.6 / 此功能将在 v0.6 后续步骤中启用</span>
+      </section>
     {/if}
   </main>
-</div>
+</AppShell>
