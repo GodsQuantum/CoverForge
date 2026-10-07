@@ -28,11 +28,11 @@
   <text x="174" y="119" font-family="Inter,Arial,sans-serif" font-size="18" fill="#475569">One image, every format.</text>
 
   <g font-family="Inter,Arial,sans-serif" text-anchor="middle">
-    <g filter="url(#shadow)"><rect x="46" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="118" y="235" font-size="20" font-weight="700" fill="#111827">Image</text><text x="118" y="263" font-size="14" fill="#64748b">JPEG �� PNG �� WebP</text></g>
+    <g filter="url(#shadow)"><rect x="46" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="118" y="235" font-size="20" font-weight="700" fill="#111827">Image</text><text x="118" y="263" font-size="14" fill="#64748b">JPEG · PNG · WebP</text></g>
     <g filter="url(#shadow)"><rect x="239" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="311" y="235" font-size="20" font-weight="700" fill="#111827">Smart crop</text><text x="311" y="263" font-size="14" fill="#64748b">Reframe once</text></g>
-    <g filter="url(#shadow)"><rect x="432" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="504" y="235" font-size="20" font-weight="700" fill="#111827">Brand kit</text><text x="504" y="263" font-size="14" fill="#64748b">Logo �� palette �� type</text></g>
-    <g filter="url(#shadow)"><rect x="625" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="697" y="235" font-size="20" font-weight="700" fill="#111827">Dynamic layers</text><text x="697" y="263" font-size="14" fill="#64748b">Title �� badge �� media</text></g>
-    <g filter="url(#shadow)"><rect x="818" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="890" y="235" font-size="20" font-weight="700" fill="#111827">Multi-format</text><text x="890" y="263" font-size="14" fill="#64748b">16:9 �� 1:1 �� 4:5 �� 9:16</text></g>
+    <g filter="url(#shadow)"><rect x="432" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="504" y="235" font-size="20" font-weight="700" fill="#111827">Brand kit</text><text x="504" y="263" font-size="14" fill="#64748b">Logo · palette · type</text></g>
+    <g filter="url(#shadow)"><rect x="625" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="697" y="235" font-size="20" font-weight="700" fill="#111827">Dynamic layers</text><text x="697" y="263" font-size="14" fill="#64748b">Title · badge · media</text></g>
+    <g filter="url(#shadow)"><rect x="818" y="190" width="145" height="104" rx="18" fill="#fff"/><text x="890" y="235" font-size="20" font-weight="700" fill="#111827">Multi-format</text><text x="890" y="263" font-size="14" fill="#64748b">16:9 · 1:1 · 4:5 · 9:16</text></g>
     <g filter="url(#shadow)"><rect x="1011" y="190" width="145" height="104" rx="18" fill="url(#forge)"/><text x="1083" y="235" font-size="20" font-weight="800" fill="#fff">ZIP / API</text><text x="1083" y="263" font-size="14" fill="#FFF8F1">Export or automate</text></g>
   </g>
   <g fill="none" stroke="#FF7A00" stroke-width="4" marker-end="url(#arrow)">
