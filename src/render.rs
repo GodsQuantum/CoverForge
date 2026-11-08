@@ -263,6 +263,7 @@ impl Renderer {
                     body.push_str(&format!(r#"<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="{}" opacity="{}"/>"#, xml(fill), clamp(*opacity)));
                 }
                 Layer::Image {
+                    id,
                     frame,
                     source,
                     fit,
@@ -276,7 +277,15 @@ impl Renderer {
                         continue;
                     }
                     let path = self.resolve_asset_path(&resolved)?;
-                    let (x, y, w, h) = px(*frame, canvas);
+                    // Native logo safety: never allow a logo to touch an edge,
+                    // even when a user moves its template layer to x=0 in the UI.
+                    let (x, y, w, h) = if id.to_ascii_lowercase().contains("logo")
+                        || source.to_ascii_lowercase().contains("logo")
+                    {
+                        safe_logo_frame(*frame, canvas)
+                    } else {
+                        px(*frame, canvas)
+                    };
                     let data = self.prepared_image(
                         &path,
                         w.max(1.0) as u32,
@@ -314,7 +323,13 @@ impl Renderer {
                     if value.is_empty() {
                         continue;
                     }
-                    let (x, y, w, h) = px(*frame, canvas);
+                    // A portrait cover is also shown as its centered 4:5 crop
+                    // in the Instagram grid. Keep every text block visible there.
+                    let (x, y, w, h) = if is_vertical_canvas(canvas) {
+                        safe_logo_frame(*frame, canvas)
+                    } else {
+                        px(*frame, canvas)
+                    };
                     let max_size = font_size * canvas.height as f32;
                     let min_size = min_font_size.unwrap_or((font_size * 0.35).max(0.008))
                         * canvas.height as f32;
@@ -527,6 +542,33 @@ fn px(f: Frame, c: &Canvas) -> (f32, f32, f32, f32) {
         f.height * c.height as f32,
     )
 }
+// Guaranteed 4% inset on every side of a final native-ratio frame.
+// This is applied at render time, so saved templates and future edits cannot
+// accidentally let logos bleed against YouTube, social or podcast cover edges.
+fn is_vertical_canvas(canvas: &Canvas) -> bool {
+    canvas.height as f32 / canvas.width as f32 > 1.30
+}
+
+fn safe_logo_frame(frame: Frame, canvas: &Canvas) -> (f32, f32, f32, f32) {
+    let (x, y, width, height) = px(frame, canvas);
+    // Instagram displays a centered 4:5 crop of a 9:16 cover:
+    // y = 14.84375% .. 85.15625%. Keep a further 4% margin inside that
+    // crop (=> y = 17.65625% .. 82.34375% of the original height).
+    let margin_x = canvas.width as f32 * 0.04;
+    let margin_y = if is_vertical_canvas(canvas) {
+        canvas.height as f32 * (0.1484375 + 0.028125)
+    } else {
+        canvas.height as f32 * 0.04
+    };
+    let w = width.min(canvas.width as f32 - 2.0 * margin_x).max(1.0);
+    let h = height.min(canvas.height as f32 - 2.0 * margin_y).max(1.0);
+    let min_x = margin_x;
+    let min_y = margin_y;
+    let max_x = canvas.width as f32 - margin_x - w;
+    let max_y = canvas.height as f32 - margin_y - h;
+    (x.clamp(min_x, max_x), y.clamp(min_y, max_y), w, h)
+}
+
 fn clamp(v: f32) -> f32 {
     v.clamp(0.0, 1.0)
 }
@@ -723,6 +765,29 @@ fn encode_jpeg_limited(src_png: &Path, target: &Path, max_bytes: usize) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn logos_have_four_percent_inset_on_every_native_ratio() {
+        for (width, height) in [(3840, 2160), (2000, 2000), (1080, 1920)] {
+            let canvas = Canvas { width, height, background: "#080808".to_owned() };
+            for frame in [
+                Frame { x: -0.03, y: 0.0, width: 0.28, height: 0.44 },
+                Frame { x: 0.8, y: 0.9, width: 0.20, height: 0.20 },
+                Frame { x: 0.02, y: 0.01, width: 0.96, height: 0.96 },
+            ] {
+                let (x, y, w, h) = safe_logo_frame(frame, &canvas);
+                let xmargin = width as f32 * 0.04;
+                let ymargin = height as f32 * 0.04;
+                let required_y = if height > width {
+                    height as f32 * (0.1484375 + 0.028125)
+                } else { ymargin };
+                assert!(x >= xmargin - 0.01, "left edge");
+                assert!(y >= required_y - 0.01, "central 4:5 top");
+                assert!(x + w <= width as f32 - xmargin + 0.01, "right edge");
+                assert!(y + h <= height as f32 - required_y + 0.01, "central 4:5 bottom");
+            }
+        }
+    }
 
     #[test]
     fn safe_filename_is_deterministic() {
