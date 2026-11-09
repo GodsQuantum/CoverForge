@@ -135,9 +135,10 @@ impl Renderer {
         let template = self.load_template(template_id)?;
         let (canvas, layers) = resolve_format(&template, variant)?;
         validate_canvas(canvas)?;
+        let variables = cover_variables(template_id, variables)?;
         let filename = safe_output_filename(requested_filename)?;
         let path = self.output_dir.join(&filename);
-        let svg = self.compose_svg(canvas, layers, variables)?;
+        let svg = self.compose_svg(canvas, layers, &variables)?;
         let ext = path
             .extension()
             .and_then(|x| x.to_str())
@@ -194,6 +195,7 @@ impl Renderer {
         if !valid_template_id(&template.id) {
             return Err(anyhow!("invalid template id"));
         }
+        let variables = cover_variables(&template.id, variables)?;
         let variants = if requested_variants.is_empty() {
             if !template.formats.is_empty() {
                 template.formats.keys().cloned().collect()
@@ -215,7 +217,7 @@ impl Renderer {
         for variant in variants {
             let (canvas, layers) = resolve_format(template, &variant)?;
             validate_canvas(canvas)?;
-            let svg = self.compose_svg(canvas, layers, variables)?;
+            let svg = self.compose_svg(canvas, layers, &variables)?;
             let filename = unique_render_filename(&stem, &variant, &mut used_filenames);
             let path = self.output_dir.join(&filename);
             self.rasterize(&svg, canvas, &path)?;
@@ -760,6 +762,84 @@ fn encode_jpeg_limited(src_png: &Path, target: &Path, max_bytes: usize) -> Resul
         "JPEG written within size limit"
     );
     Ok(())
+}
+
+
+// Show-specific, fail-closed typography contract. The first (white) and second
+// (yellow) editorial lines are independent layers, never one white title block.
+// Explicit lines always win; simple incoming titles get a deterministic split.
+fn cover_variables(
+    template_id: &str,
+    input: &BTreeMap<String, String>,
+) -> Result<BTreeMap<String, String>> {
+    let mut vars = input.clone();
+    if template_id != "cf" {
+        return Ok(vars);
+    }
+    let white = vars.get("title_white").map(|s| !s.trim().is_empty()).unwrap_or(false);
+    let yellow = vars.get("title_yellow").map(|s| !s.trim().is_empty()).unwrap_or(false);
+    if white && yellow {
+        return Ok(vars);
+    }
+    let raw = vars.get("title_copy")
+        .or_else(|| vars.get("title"))
+        .map(|s| s.trim())
+        .unwrap_or("");
+    let (fallback_white, fallback_yellow) = split_cf_title(raw).ok_or_else(|| {
+        anyhow!("CF_BRAND_TITLE_PAIR_REQUIRED: provide title_white + title_yellow or a splittable title")
+    })?;
+    if !white { vars.insert("title_white".into(), fallback_white); }
+    if !yellow { vars.insert("title_yellow".into(), fallback_yellow); }
+    Ok(vars)
+}
+fn split_cf_title(raw: &str) -> Option<(String, String)> {
+    let cleaned = raw.trim();
+    if cleaned.is_empty() { return None; }
+    for sep in ["\n", " — ", " | ", " : ", ": ", " – "] {
+        if let Some((a,b)) = cleaned.split_once(sep) {
+            let a=a.trim(); let b=b.trim();
+            if !a.is_empty() && !b.is_empty() {
+                return Some((a.to_string(), b.to_string()));
+            }
+        }
+    }
+    let words: Vec<&str> = cleaned.split_whitespace().collect();
+    if words.len() < 2 { return None; }
+    // Prefer a semantic pivot (punch line) rather than mechanical half-cut.
+    let pivots = ["mais", "pourtant", "sauf", "contre", "versus", "vs", "alors"];
+    let pivot = words.iter().enumerate()
+        .find(|(i,w)| *i>0 && *i<words.len()-1 &&
+            pivots.contains(&w.trim_matches(|c:char| !c.is_alphabetic()).to_lowercase().as_str()))
+        .map(|(i,_)| i);
+    let at = pivot.unwrap_or_else(|| (words.len()/2).max(1));
+    Some((words[..at].join(" "),words[at..].join(" ")))
+}
+
+#[cfg(test)]
+mod cf_brand_tests {
+    use super::*;
+    #[test]
+    fn semantic_punchline_and_two_colors() {
+        let title = split_cf_title("il est très fort mais nul").unwrap();
+        assert_eq!(title, ("il est très fort".into(), "mais nul".into()));
+        let mut input = BTreeMap::new();
+        input.insert("title".into(), "il est très fort mais nul".into());
+        let out = cover_variables("cf", &input).unwrap();
+        assert_eq!(out["title_white"], "il est très fort");
+        assert_eq!(out["title_yellow"], "mais nul");
+    }
+    #[test]
+    fn explicit_editorial_lines_win_and_other_shows_are_unmodified() {
+        let mut input = BTreeMap::new();
+        input.insert("title_white".into(), "C'EST UN".into());
+        input.insert("title_yellow".into(), "SCANDALE".into());
+        input.insert("title".into(), "unused title".into());
+        assert_eq!(cover_variables("cf", &input).unwrap(), input);
+        assert_eq!(cover_variables("lcfp", &input).unwrap(), input);
+        let mut invalid = BTreeMap::new();
+        invalid.insert("title".into(), "Teddy".into());
+        assert!(cover_variables("cf", &invalid).is_err());
+    }
 }
 
 #[cfg(test)]
