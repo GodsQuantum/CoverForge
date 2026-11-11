@@ -566,7 +566,7 @@ fn safe_logo_frame(frame: Frame, canvas: &Canvas) -> (f32, f32, f32, f32) {
     let min_y = margin_y;
     let max_x = canvas.width as f32 - margin_x - w;
     let max_y = canvas.height as f32 - margin_y - h;
-    (x.clamp(min_x, max_x), y.clamp(min_y, max_y), w, h)
+    (x.clamp(min_x, max_x.max(min_x)), y.clamp(min_y, max_y.max(min_y)), w, h)
 }
 
 fn clamp(v: f32) -> f32 {
