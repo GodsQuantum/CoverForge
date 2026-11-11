@@ -310,6 +310,7 @@ impl Renderer {
                     color,
                     stroke_color,
                     stroke_width,
+                    shadow,
                     align,
                     max_lines,
                     line_height,
@@ -371,6 +372,34 @@ impl Renderer {
                     } else {
                         String::new()
                     };
+                    // Optional generic elevation shadow, rendered as a second
+                    // identical native SVG text shape UNDER the foreground.
+                    // The filter preserves proper glyph shapes and produces a
+                    // soft blur without the thick black outline of text strokes.
+                    if let Some(elevate) = shadow {
+                        let blur = elevate.blur_px.clamp(0.0, 48.0);
+                        let dx = elevate.offset_x_px.clamp(-48.0, 48.0);
+                        let dy = elevate.offset_y_px.clamp(-48.0, 48.0);
+                        let alpha = clamp(elevate.opacity);
+                        if alpha > 0.0 && (blur > 0.0 || dx != 0.0 || dy != 0.0) {
+                            let filter_id = format!("text-elevation-{}", Uuid::new_v4().simple());
+                            body.push_str(&format!(
+                                r#"<defs><filter id="{filter_id}" x="-35%" y="-60%" width="170%" height="220%"><feGaussianBlur stdDeviation="{blur}"/></filter></defs>"#
+                            ));
+                            body.push_str(&format!(
+                                r#"<text x="{}" y="{}" fill="{}" opacity="{alpha}" font-family="{}" font-weight="{}" font-style="{}" font-size="{size}" text-anchor="{anchor}" filter="url(#{filter_id})"{rotation}>"#,
+                                tx + dx, start_y + dy, xml(&elevate.color), xml(font_family), font_weight, xml(font_style)
+                            ));
+                            for (i, line) in lines.iter().enumerate() {
+                                let line_dy = if i == 0 { 0.0 } else { size * line_height };
+                                body.push_str(&format!(
+                                    r#"<tspan x="{}" dy="{line_dy}">{}</tspan>"#,
+                                    tx + dx, xml(line)
+                                ));
+                            }
+                            body.push_str("</text>");
+                        }
+                    }
                     body.push_str(&format!(r#"<text x="{tx}" y="{start_y}" fill="{}" opacity="{}" font-family="{}" font-weight="{}" font-style="{}" font-size="{size}" text-anchor="{anchor}"{stroke}{rotation}>"#, xml(color), clamp(*opacity), xml(font_family), font_weight, xml(font_style)));
                     for (i, line) in lines.iter().enumerate() {
                         let dy = if i == 0 { 0.0 } else { size * line_height };

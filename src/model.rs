@@ -67,6 +67,20 @@ pub struct Frame {
     pub height: f32,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TextShadow {
+    #[serde(default = "default_text_color")]
+    pub color: String,
+    #[serde(default)]
+    pub blur_px: f32,
+    #[serde(default)]
+    pub offset_x_px: f32,
+    #[serde(default)]
+    pub offset_y_px: f32,
+    #[serde(default = "one")]
+    pub opacity: f32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Layer {
@@ -116,6 +130,8 @@ pub enum Layer {
         stroke_color: Option<String>,
         #[serde(default)]
         stroke_width: f32,
+        #[serde(default)]
+        shadow: Option<TextShadow>,
         #[serde(default = "default_align")]
         align: String,
         #[serde(default)]
@@ -367,6 +383,29 @@ mod tests {
     }
 
     #[test]
+    fn text_elevation_shadow_is_generic_and_roundtrips() {
+        let raw = r##"{
+          "type":"text",
+          "id":"headline",
+          "frame":{"x":0.05,"y":0.5,"width":0.9,"height":0.1},
+          "text":"{{title}}","font_size":0.07,
+          "shadow":{"color":"#000000","blur_px":12.0,"offset_x_px":0.0,
+                    "offset_y_px":8.0,"opacity":0.43}
+        }"##;
+        let layer: Layer = serde_json::from_str(raw).expect("text shadow is valid JSON");
+        let encoded = serde_json::to_string(&layer).unwrap();
+        let decoded: Layer = serde_json::from_str(&encoded).unwrap();
+        match decoded {
+            Layer::Text { shadow: Some(shadow), .. } => {
+                assert_eq!(shadow.blur_px, 12.0);
+                assert_eq!(shadow.offset_y_px, 8.0);
+                assert_eq!(shadow.opacity, 0.43);
+            }
+            _ => panic!("expected native text shadow"),
+        }
+    }
+
+    #[test]
     fn legacy_text_layer_defaults_are_backward_compatible() {
         let raw = r##"{
           "type":"text",
@@ -384,6 +423,7 @@ mod tests {
                 auto_fit,
                 font_style,
                 opacity,
+                shadow,
                 ..
             } => {
                 assert!(name.is_empty());
@@ -391,6 +431,7 @@ mod tests {
                 assert!(!auto_fit);
                 assert_eq!(font_style, "normal");
                 assert_eq!(opacity, 1.0);
+                assert!(shadow.is_none(), "legacy text layers must not gain a shadow");
             }
             _ => panic!("expected text layer"),
         }
