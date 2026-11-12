@@ -12,3 +12,7 @@
 /output
 
 .worktrees/
+
+# Operator-specific brand inventories and data
+/docs/CANVA_LAYOUT_AUDIT_*.md
+/data/

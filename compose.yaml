@@ -7,30 +7,34 @@ services:
     image: coverforge:0.6.1
     container_name: coverforge
     restart: unless-stopped
-    user: "1000:1000"
+    user: 1000:1000
     ports:
-      - "192.168.1.218:3099:3099"
+    - ${COVERFORGE_BIND_HOST:-127.0.0.1}:${COVERFORGE_PORT:-3099}:3099
     environment:
-      HOME: "/tmp/coverforge-home"
-      XDG_CACHE_HOME: "/tmp/coverforge-cache"
-      COVERFORGE_BIND: "0.0.0.0:3099"
-      COVERFORGE_TEMPLATE_DIR: "/data/templates"
-      COVERFORGE_DEFAULT_TEMPLATE_DIR: "/app/default-templates"
-      COVERFORGE_OUTPUT_DIR: "/srv/storage/production/active/IA/n8n/Autopublisher/covers"
-      COVERFORGE_ASSET_ROOTS: "/srv/storage/production/active"
-      COVERFORGE_FONT_DIR: "/usr/local/share/fonts/coverforge-custom"
-      RUST_LOG: "coverforge=info,tower_http=warn"
+      HOME: /tmp/coverforge-home
+      XDG_CACHE_HOME: /tmp/coverforge-cache
+      COVERFORGE_BIND: 0.0.0.0:3099
+      COVERFORGE_TEMPLATE_DIR: /data/templates
+      COVERFORGE_DEFAULT_TEMPLATE_DIR: /app/default-templates
+      COVERFORGE_OUTPUT_DIR: /data/output
+      COVERFORGE_ASSET_ROOTS: /data/assets
+      COVERFORGE_FONT_DIR: /usr/local/share/fonts/coverforge-custom
+      RUST_LOG: coverforge=info,tower_http=warn
     volumes:
-      - /srv/storage/production/active:/srv/storage/production/active:ro
-      - /srv/storage/production/active/IA/n8n/Autopublisher/covers:/srv/storage/production/active/IA/n8n/Autopublisher/covers:rw
-      - /srv/storage/production/active/Assets/CoverForge/Templates:/data/templates:rw
-      - /srv/storage/production/active/Assets/CoverForge/Fonts/Custom:/usr/local/share/fonts/coverforge-custom:rw
+    - ${COVERFORGE_ASSETS_HOST_DIR:-./data/assets}:/data/assets:ro
+    - ${COVERFORGE_OUTPUT_HOST_DIR:-./data/output}:/data/output
+    - ${COVERFORGE_TEMPLATES_HOST_DIR:-./data/templates}:/data/templates
+    - ${COVERFORGE_FONTS_HOST_DIR:-./data/fonts}:/usr/local/share/fonts/coverforge-custom:ro
     mem_limit: 768m
     mem_reservation: 128m
     pids_limit: 192
     cpus: 2.0
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3099/health"]
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:3099/health
       interval: 30s
       timeout: 5s
       retries: 3
@@ -39,4 +43,4 @@ services:
       driver: local
       options:
         max-size: 10m
-        max-file: "3"
+        max-file: '3'
