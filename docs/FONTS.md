@@ -13,7 +13,7 @@ The current catalogue is available from `GET /v1/fonts`.
 Production custom fonts live outside Git and outside the image:
 
 ```text
-/srv/storage/production/active/Assets/CoverForge/Fonts/Custom/
+./data/operator-assets
 ```
 
 Supported extensions:

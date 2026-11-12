@@ -113,12 +113,12 @@ Le package ZIP contient les sorties sélectionnées et un `manifest.json`. Les u
 
 ## Compatibilité des émissions existantes
 
-Les modèles historiques `cf`, `cp`, `dpafm`, `lcfp`, `developer` et `ur2w` restent des modèles CoverForge valides. Ils représentent simplement des brand kits spécialisés pour des émissions.
+Les modèles historiques `cf`, `cp`, `dpafm`, `lcfp`, `sample` et `ur2w` restent des modèles CoverForge valides. Ils représentent simplement des brand kits spécialisés pour des émissions.
 
 Le chemin Cloud9 actuel reste :
 
 ```text
-/srv/storage/production/active/Assets/CoverForge/Templates/
+./data/operator-assets
 ```
 
 Aucun renommage, déplacement ou changement de mount n'est requis.
